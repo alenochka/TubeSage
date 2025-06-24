@@ -118,6 +118,7 @@ Changelog:
 - June 24, 2025: Resolved Python import issues and activated real OpenAI API integration
 - June 24, 2025: Enhanced system with video snippets, clickable timestamps, and database clearing functionality
 - June 24, 2025: Successfully implemented real YouTube transcript processing with authentic AI-powered responses and clickable video references
+- June 24, 2025: Fixed context retrieval to provide actual transcript fragments to LLM for accurate responses based on video content
 
 ## User Preferences
 
