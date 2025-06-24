@@ -135,6 +135,9 @@ export class MemStorage implements IStorage {
     const video: Video = {
       ...insertVideo,
       id: this.currentVideoId++,
+      status: insertVideo.status || "pending",
+      transcriptData: insertVideo.transcriptData || null,
+      chunkCount: insertVideo.chunkCount || 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -172,6 +175,10 @@ export class MemStorage implements IStorage {
     const chunk: Chunk = {
       ...insertChunk,
       id: this.currentChunkId++,
+      videoId: insertChunk.videoId || null,
+      startTime: insertChunk.startTime || null,
+      endTime: insertChunk.endTime || null,
+      embedding: insertChunk.embedding || null,
       createdAt: new Date(),
     };
     this.chunks.set(chunk.id, chunk);
@@ -201,6 +208,10 @@ export class MemStorage implements IStorage {
     const query: Query = {
       ...insertQuery,
       id: this.currentQueryId++,
+      response: insertQuery.response || null,
+      sourceContexts: insertQuery.sourceContexts || null,
+      confidence: insertQuery.confidence || null,
+      responseTime: insertQuery.responseTime || null,
       createdAt: new Date(),
     };
     this.queries.set(query.id, query);
@@ -224,6 +235,12 @@ export class MemStorage implements IStorage {
     const agent: Agent = {
       ...insertAgent,
       id: this.currentAgentId++,
+      status: insertAgent.status || "inactive",
+      lastAction: insertAgent.lastAction || null,
+      queueCount: insertAgent.queueCount || 0,
+      uptime: insertAgent.uptime || 0,
+      totalTasks: insertAgent.totalTasks || 0,
+      successfulTasks: insertAgent.successfulTasks || 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -262,6 +279,8 @@ export class MemStorage implements IStorage {
     const log: AgentLog = {
       ...insertLog,
       id: this.currentLogId++,
+      agentId: insertLog.agentId || null,
+      level: insertLog.level || "info",
       createdAt: new Date(),
     };
     this.agentLogs.set(log.id, log);
@@ -291,8 +310,8 @@ export class MemStorage implements IStorage {
     
     // Calculate success rate from agent tasks
     const allAgents = Array.from(this.agents.values());
-    const totalTasks = allAgents.reduce((sum, agent) => sum + agent.totalTasks, 0);
-    const successfulTasks = allAgents.reduce((sum, agent) => sum + agent.successfulTasks, 0);
+    const totalTasks = allAgents.reduce((sum, agent) => sum + (agent.totalTasks || 0), 0);
+    const successfulTasks = allAgents.reduce((sum, agent) => sum + (agent.successfulTasks || 0), 0);
     const successRate = totalTasks > 0 ? (successfulTasks / totalTasks) * 100 : 100;
 
     return {

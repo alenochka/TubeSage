@@ -35,14 +35,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         chunkCount: 0
       });
       
-      // Here you would trigger the agent orchestrator
-      // For now, we'll simulate the process by updating status
-      setTimeout(async () => {
-        await storage.updateVideo(video.id, { 
-          status: "processing",
-          title: `Processing Video ${youtubeId}`
+      // Trigger the Python agent orchestrator
+      try {
+        // Call Python FastAPI server to process video
+        const pythonResponse = await fetch("http://localhost:8000/process-video", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ youtube_url: youtubeUrl })
         });
-      }, 1000);
+        
+        if (pythonResponse.ok) {
+          const result = await pythonResponse.json();
+          // Update video with processed data
+          setTimeout(async () => {
+            await storage.updateVideo(video.id, { 
+              status: "indexed",
+              title: result.data?.video_info?.title || `Video ${youtubeId}`,
+              duration: result.data?.total_duration || "00:00",
+              chunkCount: result.data?.total_chunks || 0,
+              transcriptData: result.data?.transcript || null
+            });
+          }, 2000);
+        } else {
+          // Fallback to simulation if Python server not available
+          setTimeout(async () => {
+            await storage.updateVideo(video.id, { 
+              status: "processing",
+              title: `Processing Video ${youtubeId}`
+            });
+          }, 1000);
+        }
+      } catch (error) {
+        console.log("Python agent server not available, using simulation");
+        setTimeout(async () => {
+          await storage.updateVideo(video.id, { 
+            status: "processing",
+            title: `Processing Video ${youtubeId}`
+          });
+        }, 1000);
+      }
       
       res.json({ message: "Video processing started", video });
     } catch (error) {
@@ -92,25 +123,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const startTime = Date.now();
       
-      // Here you would integrate with the query processor agent
-      // For now, we'll create a sample response
-      const response = `Based on the analyzed YouTube transcripts, here's what I found regarding: "${question}". This is where the AI-generated response would appear with relevant context from the processed video transcripts.`;
+      // Integrate with the Python query processor agent
+      let response = `Based on the analyzed YouTube transcripts, here's what I found regarding: "${question}". This is where the AI-generated response would appear with relevant context from the processed video transcripts.`;
+      let sourceContexts: any[] = [
+        {
+          videoTitle: "Sample Video Title",
+          timestamp: "12:34",
+          excerpt: "Sample excerpt from the video transcript that relates to the query...",
+          confidence: 94,
+          relevance: "High"
+        }
+      ];
+      let confidence = 94;
+
+      try {
+        // Call Python FastAPI server to process query
+        const pythonResponse = await fetch("http://localhost:8000/process-query", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: question })
+        });
+        
+        if (pythonResponse.ok) {
+          const result = await pythonResponse.json();
+          if (result.success && result.data) {
+            response = result.data.response || response;
+            sourceContexts = result.data.source_contexts || sourceContexts;
+            confidence = result.data.confidence || confidence;
+          }
+        }
+      } catch (error) {
+        console.log("Python agent server not available, using fallback response");
+      }
       
       const responseTime = Date.now() - startTime;
       
       const query = await storage.createQuery({
         question,
         response,
-        sourceContexts: [
-          {
-            videoTitle: "Sample Video Title",
-            timestamp: "12:34",
-            excerpt: "Sample excerpt from the video transcript that relates to the query...",
-            confidence: 94,
-            relevance: "High"
-          }
-        ],
-        confidence: 94,
+        sourceContexts,
+        confidence,
         responseTime
       });
       
@@ -210,42 +262,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
   // WebSocket server for real-time updates
-  const wss = new WebSocketServer({ server: httpServer });
+  const wss = new WebSocketServer({ 
+    server: httpServer,
+    path: '/ws'
+  });
   
   wss.on('connection', (ws) => {
     console.log('Client connected to WebSocket');
     
-    // Send initial agent status
-    storage.getAllAgents().then(agents => {
+    // Send initial data
+    Promise.all([
+      storage.getAllAgents(),
+      storage.getAgentLogs(10),
+      storage.getSystemMetrics()
+    ]).then(([agents, logs, metrics]) => {
       ws.send(JSON.stringify({
         type: 'agent-status',
         data: agents
       }));
-    });
+      
+      ws.send(JSON.stringify({
+        type: 'system-logs',
+        data: logs
+      }));
+      
+      ws.send(JSON.stringify({
+        type: 'system-metrics',
+        data: metrics
+      }));
+    }).catch(console.error);
     
     ws.on('close', () => {
       console.log('Client disconnected from WebSocket');
+    });
+    
+    ws.on('error', (error) => {
+      console.error('WebSocket error:', error);
     });
   });
 
   // Simulate real-time updates
   setInterval(async () => {
-    const agents = await storage.getAllAgents();
-    const logs = await storage.getAgentLogs(10);
-    
-    wss.clients.forEach(client => {
-      if (client.readyState === 1) { // WebSocket.OPEN
-        client.send(JSON.stringify({
-          type: 'agent-status',
-          data: agents
-        }));
-        
-        client.send(JSON.stringify({
-          type: 'system-logs',
-          data: logs
-        }));
-      }
-    });
+    try {
+      const [agents, logs, metrics] = await Promise.all([
+        storage.getAllAgents(),
+        storage.getAgentLogs(10),
+        storage.getSystemMetrics()
+      ]);
+      
+      wss.clients.forEach(client => {
+        if (client.readyState === 1) { // WebSocket.OPEN
+          client.send(JSON.stringify({
+            type: 'agent-status',
+            data: agents
+          }));
+          
+          client.send(JSON.stringify({
+            type: 'system-logs',
+            data: logs
+          }));
+          
+          client.send(JSON.stringify({
+            type: 'system-metrics',
+            data: metrics
+          }));
+        }
+      });
+    } catch (error) {
+      console.error('Error updating WebSocket clients:', error);
+    }
   }, 30000); // Update every 30 seconds
 
   return httpServer;
