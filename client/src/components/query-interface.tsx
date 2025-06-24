@@ -18,9 +18,10 @@ export default function QueryInterface({ onQuerySelect }: QueryInterfaceProps) {
   const { toast } = useToast();
 
   const suggestedQueries = [
-    "Quantum effects in photosynthesis",
-    "Electron tunneling mechanisms", 
-    "Molecular structure analysis"
+    "What does Nathan Babcock say about quantum effects in biology?",
+    "Who is the speaker and what are the main points about quantum biology?",
+    "What research methods are discussed in the videos?",
+    "How does the speaker explain photon emissions in living organisms?"
   ];
 
   const submitQueryMutation = useMutation({

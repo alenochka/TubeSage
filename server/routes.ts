@@ -199,11 +199,22 @@ async function processQueryWithAI(question: string) {
                  chunkLower.includes('tunnel') || 
                  chunkLower.includes('electron') ||
                  chunkLower.includes('nathan') ||
-                 chunkLower.includes('babcock');
+                 chunkLower.includes('babcock') ||
+                 chunkLower.includes('gmail') ||
+                 chunkLower.includes('contact') ||
+                 chunkLower.includes('email');
         });
         
-        // Use relevant chunks or fallback to random chunks, but always include more chunks for better coverage
-        const chunksToUse = relevantChunks.length > 0 ? relevantChunks.slice(0, 3) : chunks.slice(-2); // Use last 2 chunks as fallback since conclusions often contain contact info
+        // Always include ending chunks since they often contain contact info and conclusions
+        const endingChunks = chunks.slice(-3); // Last 3 chunks
+        const allCandidateChunks = [...relevantChunks, ...endingChunks];
+        
+        // Remove duplicates and take top chunks
+        const uniqueChunks = allCandidateChunks.filter((chunk, index, array) => 
+          array.findIndex(c => c.id === chunk.id) === index
+        );
+        
+        const chunksToUse = uniqueChunks.slice(0, 4); // Use up to 4 chunks for better coverage
         
         for (const chunk of chunksToUse) {
           contextText += `\n\nFrom video "${video.title}" at ${chunk.startTime}: ${chunk.content}`;
