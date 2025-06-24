@@ -590,3 +590,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   return httpServer;
 }
+
+function extractChannelId(url: string): string | null {
+  const patterns = [
+    /youtube\.com\/channel\/([a-zA-Z0-9_-]+)/,
+    /youtube\.com\/c\/([a-zA-Z0-9_-]+)/,
+    /youtube\.com\/user\/([a-zA-Z0-9_-]+)/,
+    /youtube\.com\/@([a-zA-Z0-9_-]+)/,
+    /@([a-zA-Z0-9_-]+)/
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+
+  return null;
+}
+
+function generateMockChannelVideos(channelId: string) {
+  // Mock channel videos for demonstration
+  // In production, this would use YouTube Data API
+  const baseVideos = [
+    {
+      id: "m2SW35yaajE",
+      title: "Open Quantum Systems Theory of Ultra Weak UV Photon Emissions",
+      duration: "15:32",
+      publishedAt: "2024-03-15",
+      thumbnailUrl: "https://i.ytimg.com/vi/m2SW35yaajE/hqdefault.jpg",
+      url: "https://www.youtube.com/watch?v=m2SW35yaajE"
+    },
+    {
+      id: "mf6lkIipjF0", 
+      title: "Quantum Biology: From Photons to Physiology",
+      duration: "28:45",
+      publishedAt: "2024-02-20",
+      thumbnailUrl: "https://i.ytimg.com/vi/mf6lkIipjF0/hqdefault.jpg",
+      url: "https://www.youtube.com/watch?v=mf6lkIipjF0"
+    },
+    {
+      id: "9u7rIODg2YU",
+      title: "Quantum Biology Research Framework and Applications",
+      duration: "12:18",
+      publishedAt: "2024-01-10",
+      thumbnailUrl: "https://i.ytimg.com/vi/9u7rIODg2YU/hqdefault.jpg", 
+      url: "https://www.youtube.com/watch?v=9u7rIODg2YU"
+    }
+  ];
+
+  // Generate additional mock videos for the channel
+  const additionalVideos = Array.from({ length: 12 }, (_, i) => ({
+    id: `mock_${channelId}_${i + 1}`,
+    title: `${channelId} Video ${i + 1}: Advanced Quantum Biology Research`,
+    duration: `${Math.floor(Math.random() * 30) + 5}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`,
+    publishedAt: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    thumbnailUrl: `https://i.ytimg.com/vi/mock_${channelId}_${i + 1}/hqdefault.jpg`,
+    url: `https://www.youtube.com/watch?v=mock_${channelId}_${i + 1}`
+  }));
+
+  return [...baseVideos, ...additionalVideos];
+}
+
+function extractVideoId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /^[a-zA-Z0-9_-]{11}$/
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+
+  return null;
+}
