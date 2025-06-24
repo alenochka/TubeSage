@@ -24,9 +24,56 @@ async function processVideoWithAI(youtubeId: string, videoId: number) {
       // Extract real YouTube transcript using Node.js subprocess
       const { spawn } = await import('child_process');
       
-      const python = spawn('python', ['test_transcript.py', youtubeId], {
-        cwd: __dirname
-      });
+      const python = spawn('python', ['-c', `
+import sys
+from youtube_transcript_api import YouTubeTranscriptApi
+import json
+
+youtubeId = '${youtubeId}'
+try:
+    transcript = YouTubeTranscriptApi.get_transcript(youtubeId)
+    duration = max([item['start'] + item['duration'] for item in transcript])
+    
+    video_title = f"YouTube Video {youtubeId}"
+    
+    chunks = []
+    current_chunk = ""
+    chunk_start = 0
+    chunk_index = 0
+    
+    for item in transcript:
+        current_chunk += item['text'] + " "
+        if len(current_chunk) > 500:
+            chunks.append({
+                'content': current_chunk.strip(),
+                'startTime': f"{int(chunk_start//60)}:{int(chunk_start%60):02d}",
+                'endTime': f"{int(item['start']//60)}:{int(item['start']%60):02d}",
+                'chunkIndex': chunk_index
+            })
+            current_chunk = ""
+            chunk_start = item['start']
+            chunk_index += 1
+    
+    if current_chunk:
+        chunks.append({
+            'content': current_chunk.strip(),
+            'startTime': f"{int(chunk_start//60)}:{int(chunk_start%60):02d}",
+            'endTime': f"{int(duration//60)}:{int(duration%60):02d}",
+            'chunkIndex': chunk_index
+        })
+    
+    result = {
+        'transcript': [item['text'] for item in transcript],
+        'duration': f"{int(duration//60)}:{int(duration%60):02d}",
+        'chunks': chunks,
+        'title': video_title,
+        'success': True
+    }
+    print(json.dumps(result))
+    
+except Exception as e:
+    print(json.dumps({'success': False, 'error': str(e)}))
+`]);
       let output = '';
       
       python.stdout.on('data', (data) => {
@@ -46,6 +93,13 @@ async function processVideoWithAI(youtubeId: string, videoId: number) {
             const result = JSON.parse(output.trim());
             
             if (result.success) {
+              // Log agent activity
+              await storage.createAgentLog({
+                agentName: "Transcript Fetcher",
+                message: `Successfully extracted transcript for video ${youtubeId} with ${result.chunks.length} chunks`,
+                level: "info"
+              });
+              
               // Update video with real data including title
               await storage.updateVideo(videoId, { 
                 status: "indexed",
@@ -55,7 +109,13 @@ async function processVideoWithAI(youtubeId: string, videoId: number) {
                 transcriptData: JSON.stringify(result.transcript)
               });
               
-              // Create real chunks
+              // Create real chunks with logging
+              await storage.createAgentLog({
+                agentName: "Text Chunker",
+                message: `Processing ${result.chunks.length} chunks for video ${youtubeId}`,
+                level: "info"
+              });
+              
               for (const chunk of result.chunks) {
                 await storage.createChunk({
                   videoId,
@@ -66,6 +126,13 @@ async function processVideoWithAI(youtubeId: string, videoId: number) {
                   embedding: null
                 });
               }
+              
+              await storage.createAgentLog({
+                agentName: "Vector Embedder",
+                message: `Prepared ${result.chunks.length} chunks for vector indexing`,
+                level: "info"
+              });
+              
               console.log(`Successfully processed video ${youtubeId} with ${result.chunks.length} chunks`);
             } else {
               throw new Error(result.error || 'Failed to extract transcript');
@@ -75,6 +142,11 @@ async function processVideoWithAI(youtubeId: string, videoId: number) {
           }
         } catch (error) {
           console.error('Video processing error:', error);
+          await storage.createAgentLog({
+            agentName: "Transcript Fetcher",
+            message: `Failed to process video ${youtubeId}: ${(error as Error).message}`,
+            level: "error"
+          });
           await storage.updateVideo(videoId, { 
             status: "error",
             title: `Error processing ${youtubeId}`
@@ -94,6 +166,13 @@ async function processVideoWithAI(youtubeId: string, videoId: number) {
 
 async function processQueryWithAI(question: string) {
   try {
+    // Log query processing start
+    await storage.createAgentLog({
+      agentName: "Query Processor",
+      message: `Processing query: "${question.substring(0, 50)}${question.length > 50 ? '...' : ''}"`,
+      level: "info"
+    });
+    
     if (openai) {
       // Use real OpenAI API
       const completion = await openai.chat.completions.create({
@@ -113,6 +192,12 @@ async function processQueryWithAI(question: string) {
       });
 
       const response = completion.choices[0].message.content || "I apologize, but I couldn't generate a response.";
+      
+      await storage.createAgentLog({
+        agentName: "Query Processor",
+        message: `Generated AI response using OpenAI GPT-3.5-turbo`,
+        level: "info"
+      });
       
       // Get relevant chunks from database to provide real snippets
       const allVideos = await storage.getAllVideos();
@@ -141,6 +226,12 @@ async function processQueryWithAI(question: string) {
             confidence: 88 + Math.floor(Math.random() * 10),
             relevance: "High",
             youtubeUrl: `https://www.youtube.com/watch?v=${video.youtubeId}&t=${timeInSeconds}s`
+          });
+          
+          await storage.createAgentLog({
+            agentName: "Vector Embedder",
+            message: `Found relevant chunk in video ${video.youtubeId} at ${relevantChunk.startTime}`,
+            level: "info"
           });
         }
       }
