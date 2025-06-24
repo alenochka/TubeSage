@@ -120,6 +120,7 @@ Changelog:
 - June 24, 2025: Successfully implemented real YouTube transcript processing with authentic AI-powered responses and clickable video references
 - June 24, 2025: Fixed context retrieval to provide actual transcript fragments to LLM for accurate responses based on video content
 - June 24, 2025: Successfully implemented authentic AI responses using real YouTube transcript content with proper context passing to OpenAI GPT-3.5-turbo
+- June 24, 2025: Added real-time agent activity diagram showing multi-agent workflow visualization with live status updates
 
 ## User Preferences
 

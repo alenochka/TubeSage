@@ -6,6 +6,7 @@ import QueryInterface from "@/components/query-interface";
 import ResultsDisplay from "@/components/results-display";
 import VectorDatabase from "@/components/vector-database";
 import AgentPanel from "@/components/agent-panel";
+import AgentDiagram from "@/components/agent-diagram";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useWebSocket } from "@/hooks/use-websocket";
@@ -62,6 +63,9 @@ export default function Home() {
             {/* Results Display */}
             {selectedQuery && <ResultsDisplay query={selectedQuery} />}
 
+            {/* Agent Activity Diagram */}
+            <AgentDiagram />
+            
             {/* Vector Database */}
             <VectorDatabase />
           </div>
