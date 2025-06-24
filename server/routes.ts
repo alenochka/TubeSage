@@ -33,8 +33,8 @@ try:
     transcript = YouTubeTranscriptApi.get_transcript('${youtubeId}')
     duration = max([item['start'] + item['duration'] for item in transcript])
     
-    # Get video title from first chunk context (basic method)
-    video_title = f"YouTube Video {youtubeId}"
+    # Get video title from first chunk context (basic method)  
+    video_title = "YouTube Video ${youtubeId}"
     
     # Process transcript into chunks
     chunks = []
@@ -47,8 +47,8 @@ try:
         if len(current_chunk) > 500:  # Chunk size
             chunks.append({
                 'content': current_chunk.strip(),
-                'startTime': f"{int(chunk_start//60)}:{int(chunk_start%60):02d}",
-                'endTime': f"{int(item['start']//60)}:{int(item['start']%60):02d}",
+                'startTime': str(int(chunk_start//60)) + ":" + str(int(chunk_start%60)).zfill(2),
+                'endTime': str(int(item['start']//60)) + ":" + str(int(item['start']%60)).zfill(2),
                 'chunkIndex': chunk_index
             })
             current_chunk = ""
@@ -58,14 +58,14 @@ try:
     if current_chunk:
         chunks.append({
             'content': current_chunk.strip(),
-            'startTime': f"{int(chunk_start//60)}:{int(chunk_start%60):02d}",
-            'endTime': f"{int(duration//60)}:{int(duration%60):02d}",
+            'startTime': str(int(chunk_start//60)) + ":" + str(int(chunk_start%60)).zfill(2),
+            'endTime': str(int(duration//60)) + ":" + str(int(duration%60)).zfill(2),
             'chunkIndex': chunk_index
         })
     
     result = {
         'transcript': [item['text'] for item in transcript],
-        'duration': f"{int(duration//60)}:{int(duration%60):02d}",
+        'duration': str(int(duration//60)) + ":" + str(int(duration%60)).zfill(2),
         'chunks': chunks,
         'title': video_title,
         'success': True
@@ -160,18 +160,29 @@ async function processQueryWithAI(question: string) {
       const allVideos = await storage.getAllVideos();
       const sourceContexts = [];
       
-      for (const video of allVideos.slice(0, 3)) { // Top 3 videos
+      // Only include videos that are successfully indexed
+      const indexedVideos = allVideos.filter(v => v.status === 'indexed');
+      
+      for (const video of indexedVideos.slice(0, 3)) { // Top 3 indexed videos
         const chunks = await storage.getChunksByVideoId(video.id);
         if (chunks.length > 0) {
-          const relevantChunk = chunks[Math.floor(Math.random() * chunks.length)];
+          // Find chunks that might be relevant to the question
+          const relevantChunk = chunks.find(chunk => 
+            chunk.content.toLowerCase().includes(question.toLowerCase().split(' ')[0])
+          ) || chunks[Math.floor(Math.random() * chunks.length)];
+          
+          // Convert timestamp format for YouTube URL
+          const timeInSeconds = relevantChunk.startTime ? 
+            relevantChunk.startTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0) : 0;
+          
           sourceContexts.push({
-            videoTitle: video.title,
+            videoTitle: video.title || `Video ${video.youtubeId}`,
             videoId: video.youtubeId,
             timestamp: relevantChunk.startTime || "0:00",
             excerpt: relevantChunk.content.substring(0, 150) + "...",
             confidence: 88 + Math.floor(Math.random() * 10),
             relevance: "High",
-            youtubeUrl: `https://www.youtube.com/watch?v=${video.youtubeId}&t=${relevantChunk.startTime?.replace(':', 'm')}s`
+            youtubeUrl: `https://www.youtube.com/watch?v=${video.youtubeId}&t=${timeInSeconds}s`
           });
         }
       }
@@ -180,11 +191,11 @@ async function processQueryWithAI(question: string) {
         response,
         sourceContexts: sourceContexts.length > 0 ? sourceContexts : [
           {
-            videoTitle: "AI Generated Response",
-            timestamp: "N/A",
-            excerpt: "Response generated using OpenAI GPT-3.5-turbo",
-            confidence: 90,
-            relevance: "High"
+            videoTitle: "No processed videos found",
+            timestamp: "N/A", 
+            excerpt: "Process some YouTube videos first to get specific video references and timestamps",
+            confidence: 75,
+            relevance: "Medium"
           }
         ],
         confidence: 90

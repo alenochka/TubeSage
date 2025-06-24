@@ -68,10 +68,19 @@ export default function ResultsDisplay({ query }: ResultsDisplayProps) {
                       {context.videoTitle}
                     </div>
                     <div className="flex items-center space-x-2">
-                      <span className="text-xs text-neutral-500">{context.timestamp}</span>
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                        <ExternalLink className="w-3 h-3" />
-                      </Button>
+                      {context.youtubeUrl ? (
+                        <a 
+                          href={context.youtubeUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:text-blue-800 underline flex items-center space-x-1"
+                        >
+                          <span>{context.timestamp}</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      ) : (
+                        <span className="text-xs text-neutral-500">{context.timestamp}</span>
+                      )}
                     </div>
                   </div>
                   <p className="text-sm text-neutral-600 mb-2">
