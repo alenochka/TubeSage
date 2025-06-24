@@ -89,7 +89,7 @@ Please provide a comprehensive answer based on the provided context. If the cont
 Answer:"""
         
         # Mock LLM response (in production, use OpenAI or Google Gemini API)
-        response = await self._mock_llm_response(query, context)
+        response = await self._generate_llm_response(query, context)
         
         return response
     
