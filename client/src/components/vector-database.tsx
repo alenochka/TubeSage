@@ -21,10 +21,12 @@ export default function VectorDatabase() {
 
   const { data: videos = [], isLoading } = useQuery({
     queryKey: ["/api/videos"],
+    refetchInterval: 3000,
   });
 
   const { data: metrics } = useQuery({
     queryKey: ["/api/system/metrics"],
+    refetchInterval: 3000,
   });
 
   const refreshMutation = useMutation({
