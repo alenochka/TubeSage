@@ -1,0 +1,214 @@
+Alena
+alena_87226
+Online
+
+Gebin George — 6/22/25, 12:02 PM
+Hey team! 👋
+
+You’re now in your private breakout space for Build Week. This is your mission control for the next few days — use this channel to brainstorm, build, debug, and get your agent ready for the final showcase on Saturday, June 29.
+
+Here’s what you need to know:
+
+🔹 Pick a cool name for your team:
+Pick a name and make it sound cool
+
+🔹 Build Week Goal:
+Design and build your own functional AI agent — solo, multi-agent, tool-integrated… your call! Think practical, creative, and demo-ready.
+
+🔹 Submission Deadline:
+Thursday, June 27 | 9:00 PM ET
+Only teams that submit by this deadline will get the chance to present live to our Expert Panel on Day 4.
+
+🔹 Support During the Week:
+@SaiKumarArava will be available here and in the Discord channel to assist you with blockers, bugs, or brainstorms. Just tag him if you’re stuck!
+
+🔹 Need Help Collaborating?
+Assign roles (e.g., coder, tester, prompt engineer), use voice channels to co-work, and keep sharing updates here regularly. Communication = progress. 💬
+
+🔹 Quick Checklist Before You Start:
+Choose a project idea
+Define your agent’s purpose
+Decide what tools/memory/data it will use
+
+Start iterating — small wins matter!
+
+Let’s build something awesome together. 
+
+Feel free to rename your group if you haven’t already — creativity encouraged!
+mlabs — 6/22/25, 1:20 PM
+Seal Team 6
+mlabs — 6/22/25, 1:30 PM
+So I created a starter project for us in my github :
+
+https://github.com/miramar-labs/Agents-Over-The-Weekend
+
+see team-6 folder.....
+
+Maybe we should start by filling out the README with a description of what we are building....?
+GitHub
+GitHub - miramar-labs/Agents-Over-The-Weekend: Build AI Agents over...
+Build AI Agents over the weekend with Packt Publishing - miramar-labs/Agents-Over-The-Weekend
+GitHub - miramar-labs/Agents-Over-The-Weekend: Build AI Agents over...
+Alex Khan — 6/22/25, 1:46 PM
+Can we vote on the project we want to work on?
+
+The two I had mentioned are
+Medical procedure pre-authorization
+Searching for information in YouTube video transcripts
+
+There were two others mentioned. If you would like, please add your project in sequence, so we can vote on the project we want to work on as a team.
+mlabs — 6/22/25, 4:14 PM
+#2 gets my vote 
+Lillian Fleming — 6/22/25, 5:14 PM
+#2 sounds doable given our time frame
+Alena — 6/22/25, 5:48 PM
+#2 sounds great
+mlabs — 6/22/25, 7:05 PM
+Ok so if we went with #2, looking at it I think we could break it up into a number of sub-tasks (langchain tools?)
+
+Fetch YouTube Transcript (https://pypi.org/project/youtube-transcript-api/ ?)
+Split Transcript into Chunks (see LangChain api - RecursiveCharacterTextSplitter?)
+Embed Chunks and Create Vector Store (see langchain-google-vertexai /FAISS ?)
+Create Retrieval QA Chain (see LangChain api - RetrievalQA ?)
+Query the Agent (construct LLM query and run the langchain..)
+Implement a simple Web GUI or CLI Wrapper? (FastAPI? Streamlit? or just keep it all in the console?)
+PyPI
+youtube-transcript-api
+This is an python API which allows you to get the transcripts/subtitles for a given YouTube video. It also works for automatically generated subtitles, supports translating subtitles and it does not require a headless browser, like other selenium based solutions do!
+Image
+Alex Khan — 6/22/25, 7:47 PM
+@mlabs  I have pushed the initial concept code of the YouTube Transcript search in a separate file. It uses vector database, but has no agents. It is in a separate fork. Please check it to see if it runs properly.
+mlabs — 6/22/25, 7:51 PM
+what fork are you referring to?
+Alex Khan — 6/22/25, 7:53 PM
+I created a fork using my github account under ayazskhan. Since I dont have write access, I have sent a push request to this fork. You dont see it? I will try again using Github Desktop. 
+mlabs — 6/22/25, 7:57 PM
+just added you as collaborator to my repo ... seems easier if we all just share the same repo no? 
+Alex Khan — 6/22/25, 7:57 PM
+I will try again.
+mlabs — 6/22/25, 7:58 PM
+anyone else that wants to use my shared repo (above) - just paste your github user names or email addy's here 
+I think though .. before we dive into coding .. a bit more collaborative discussion might be in order?  I tried to kick that off above with my previous comments.... 😉
+suggestion: we start by rounding out the README description of what it is we are looking to build ...
+Alex Khan — 6/22/25, 8:02 PM
+The code is just a sample of what I did before. It shows the limitations of doing a direct query to OpenAI without context, then finding the transcripts, saving them in a vector database, and using them to add context with the query to OpenAI. I can describe the results here...
+mlabs — 6/22/25, 8:03 PM
+cool.
+fyi in my starter notebook I picked the google apis as they seem to be free (OpenAI not so much) ...
+all up for group discussion of course 😉
+Alex Khan — 6/22/25, 8:04 PM
+For example: The prompt ""What does Nathan Babcock say about quantum effects in biology?""
+gives the result "Response: I'm sorry, but I couldn't find any information on a person named Nathan Babcock discussing quantum effects in biology. It's possible that you may have misspelled the name or the person you're asking about isn't widely recognized in this field."
+After finding a list of videos using the search "Nathan Babcock Quantum Biology"
+Quantum Theory &amp; The New Observables: Chapter 1 of Physical Principles of Quantum Biology (ID: 1igKzDiWc84)
+Quantum Biology: From Photons to Physiology (ID: mf6lkIipjF0)
+FULL LECTURE - Physical Foundations of Quantum Biology (ID: bRpTpSJFGCs)
+A Template for Quantum Biology (ID: 9u7rIODg2YU)
+Quantum Biology for Health and Medicine (Resonance Symposium, São Paulo, Brazil, 17 November 2023) (ID: PsbkocsfDyo)
+
+The transcripts are saved in the vector database
+mlabs — 6/22/25, 8:06 PM
+did you check out that youtube pypy library I found for youtube transcripts?
+Alex Khan — 6/22/25, 8:07 PM
+Then the query "What quantum effects are found in biology"  gives
+the response as "OpenAI Summary:
+The speaker is discussing Quantum Biology, a field studying biological processes that cannot be adequately explained using only classical physics principles. This field includes the study of photosynthesis, electron tunneling during cellular respiration, and fundamental aspects of molecular structure. The speaker suggests that rather than looking for quantum effects within a classical framework, we should begin with quantum mechanical postulates to understand the full range of quantum states and effects at a microscopic level. The speaker also mentions that quantum effects in biology are well established in redox co-actors, special molecules found in aspects of cellular respiration and other metabolic chemical reactions in living cells. However, the speaker raises the question about the ability of the biological microenvironment to sustain quantum effects due to its warm and wet nature.
+"
+mlabs — 6/22/25, 8:07 PM
+yeah I agree OpenAI 4o is probably the superior model, but it costs $$ for the API key? 
+Alex Khan — 6/22/25, 8:10 PM
+This is just a starting point.
+I would suggest using any other library or free tools if possible.
+Move the code to Agent.ipynb and use the updated libraries
+We do need to discuss what do we want to get out of this type of search, why its more effective than just searching OpenAI, or in ChatGPT, as it can get to information not found in documents
+We need to draw out the flow for agents to do this efficiently and manage the memory and context
+mlabs — 6/22/25, 8:12 PM
+yeah, maybe you can comment on my task list above?
+Alex Khan — 6/22/25, 8:12 PM
+Yes, I am using the same library
+mlabs — 6/22/25, 8:12 PM
+cool
+do you want to take on that sub task?
+i think this is might be an ideal candidate for a langchain 'tool' no?
+Alex Khan — 6/22/25, 8:15 PM
+Yes, we definitely want to use langchain so we can learn how to efficiently use agents. The code I sent is not the most efficent in its creation of the vector database or managing the context. I want to see if agents can do better searches and manage the process to get to key information more accurately. At least that was my original idea, but we can have agents also search in history, open tabs for documents that are being used.
+Alex Khan — 6/22/25, 8:16 PM
+Not sure about which sub task I will take yet
+Alex Khan — 6/22/25, 8:16 PM
+I am reviewing your task list
+mlabs — 6/22/25, 8:16 PM
+ok i'm heading out now .. I'm in CA (PST) and will check in tomorrow - hopefully we'll get more input from the rest of the team
+Alex Khan — 6/22/25, 8:17 PM
+have you found the YouTubSearch file that I pushed? Can you accept it?
+mlabs — 6/22/25, 8:17 PM
+back to reading Leonid's book - it's really good 😉
+mlabs — 6/22/25, 8:18 PM
+no - can you just clone my repo? you should be able to push to that directly now as i added you as a collaborator - no need to fork
+Alex Khan — 6/22/25, 8:23 PM
+Still getting this message
+Image
+mlabs — 6/22/25, 8:24 PM
+you have to accept the invitation i sent
+Alex Khan — 6/22/25, 8:25 PM
+Thanks, pushed.
+Alex Khan — 6/22/25, 8:26 PM
+I agree with your steps. You will see that my steps are similar, but dont use LangChain and thus do not use agents. It seems like we are basically translating the code into LangChain, and we can tweak it from there. 
+mlabs — 6/22/25, 8:27 PM
+probably what i should do iss enforce PR's and have us all work in our own branches ... that way we can all review the PRs before merging into main ... what do you think?
+ie lock thee main branch
+we are professionals after all 🙂
+Alex Khan — 6/22/25, 8:28 PM
+I am not that familiar with GitHub, so I would prefer you check my code to make sure its not overwriting anything you have changed. Or we can  do clean discrete code changes
+mlabs — 6/22/25, 8:29 PM
+oh ok ... well i'll take a look tomorrow and we can discuss .... got to go now.... 🙂
+Alex Khan — 6/22/25, 8:29 PM
+Thanks, talk tomorrow
+Alex Khan — Yesterday at 8:28 AM
+Good morning everyone. 
+
+Please download the latest code from GitHub. Our project is to convert a non-agent based YouTube transcript search app to an LangChain based app, based on our learning from the weekend. @mlabs has detailed some steps that we can finalize. Here are some notes for how we can proceed as well. 
+
+Apart from an OpenAI key, you will need to go to your Google admin console and enable YouTubeAPI and get a key as well.
+
+Are you available 8pm ET/5pm PT for a team meeting to go over the plan for the week, tasks and assignments?
+Attachment file type: document
+Project Description.docx
+19.14 KB
+mlabs — Yesterday at 8:41 AM
+Thanks @Alex Khan I will be available ... hope to see you all here...
+re OpenAi API keys .. did we decide we are using that? Because my understanding is there is no free tier for Open API .. which is why I suggested we use the free google API key... 
+@team - need your github id's or email addresses so I can invite you to our github repo... paste here please
+mlabs — Yesterday at 9:11 AM
+@Alex Khan I put your project description in the README ....
+https://github.com/miramar-labs/Agents-Over-The-Weekend/tree/main/team-6
+GitHub
+Agents-Over-The-Weekend/team-6 at main · miramar-labs/Agents-Over-...
+Build AI Agents over the weekend with Packt Publishing - miramar-labs/Agents-Over-The-Weekend
+Build AI Agents over the weekend with Packt Publishing - miramar-labs/Agents-Over-The-Weekend
+mlabs — Yesterday at 9:21 AM
+@Team fyi: OpenAI API keys from signing up here: https://platform.openai.com/docs/overview
+If you are lucky you might get some tokens as part of a free trial  😉
+for the other API keys - see links in README dev notes
+Alex Khan — Yesterday at 11:11 AM
+For those available to join the team-6 call tonight 8pm ET/5pm PT please use the link below:
+https://meet.google.com/awg-gxyv-whn 
+Meet
+Real-time meetings by Google. Using your browser, share your video, desktop, and presentations with teammates and customers.
+Image
+Alex Khan — Yesterday at 4:55 PM
+Starting team meeting in 5 min (link above)
+Alex Khan — Yesterday at 5:09 PM
+If you are having any problems joining, let me know here, I am checking here as well
+Alex Khan — Yesterday at 6:54 PM
+Based on our meeting.  Please make additions or comments as you wish.
+
+We have the scope as stated in the document and readme file
+We will be translating the YouTube code from the rudimentary form it is in to a more agentic system based on LangChain
+Aaron @mlabs will develop the skeletal structure for the LangChain code and archestration (we will keep it simple and mapped to the original version first) (by Tuesday)
+We then need to build the agents, tools, and complete the basic functionality (by Wednesday evening)
+@Alena Alena also is using a great tool to develop the user interface and additional functionality.  It would be great if Alena can build the user interface so our demo is not a jupyter notebook or Streamlit.  We want to constrain the interface to only wrap the functionality we are coding around the YouTube Transcript search for our presentation. We should have the Interface working with the functionality mentioned in item 4 by Wednesday evening.
+After this basic functionality and interface is working, we will have a day to enhance the agents to get better results, create better vector databases, and refine the prompts and context to get accurate answers hidden within these videos. Complete by Thursday evening and Submit.
+
+Please give a thumbs up if you are in agreement. 
+
+For those who have not engaged on the project yet, please let me know what time zone you are in, and if you would like to join the project to help with item 4 or 6.  I am willing to meet tomorrow noon-1pm ET and catch you up with the project and do the demo. This should help to get you involved. Send a message here by 10am ET tomorrow if you are wanting me to set up a meeting.
