@@ -24,67 +24,24 @@ async function processVideoWithAI(youtubeId: string, videoId: number) {
       // Extract real YouTube transcript using Node.js subprocess
       const { spawn } = await import('child_process');
       
-      const pythonScript = `
-import sys
-from youtube_transcript_api import YouTubeTranscriptApi
-import json
-
-try:
-    transcript = YouTubeTranscriptApi.get_transcript('${youtubeId}')
-    duration = max([item['start'] + item['duration'] for item in transcript])
-    
-    # Get video title from first chunk context (basic method)  
-    video_title = "YouTube Video ${youtubeId}"
-    
-    # Process transcript into chunks
-    chunks = []
-    current_chunk = ""
-    chunk_start = 0
-    chunk_index = 0
-    
-    for item in transcript:
-        current_chunk += item['text'] + " "
-        if len(current_chunk) > 500:  # Chunk size
-            chunks.append({
-                'content': current_chunk.strip(),
-                'startTime': str(int(chunk_start//60)) + ":" + str(int(chunk_start%60)).zfill(2),
-                'endTime': str(int(item['start']//60)) + ":" + str(int(item['start']%60)).zfill(2),
-                'chunkIndex': chunk_index
-            })
-            current_chunk = ""
-            chunk_start = item['start']
-            chunk_index += 1
-    
-    if current_chunk:
-        chunks.append({
-            'content': current_chunk.strip(),
-            'startTime': str(int(chunk_start//60)) + ":" + str(int(chunk_start%60)).zfill(2),
-            'endTime': str(int(duration//60)) + ":" + str(int(duration%60)).zfill(2),
-            'chunkIndex': chunk_index
-        })
-    
-    result = {
-        'transcript': [item['text'] for item in transcript],
-        'duration': str(int(duration//60)) + ":" + str(int(duration%60)).zfill(2),
-        'chunks': chunks,
-        'title': video_title,
-        'success': True
-    }
-    print(json.dumps(result))
-    
-except Exception as e:
-    print(json.dumps({'success': False, 'error': str(e)}))
-`;
-
-      const python = spawn('python', ['-c', pythonScript]);
+      const python = spawn('python', ['test_transcript.py', youtubeId], {
+        cwd: __dirname
+      });
       let output = '';
       
       python.stdout.on('data', (data) => {
         output += data.toString();
       });
       
+      python.stderr.on('data', (data) => {
+        console.error('Python stderr:', data.toString());
+      });
+      
       python.on('close', async (code) => {
         try {
+          console.log(`Python script exited with code: ${code}`);
+          console.log(`Python output: ${output}`);
+          
           if (code === 0 && output.trim()) {
             const result = JSON.parse(output.trim());
             
@@ -109,11 +66,12 @@ except Exception as e:
                   embedding: null
                 });
               }
+              console.log(`Successfully processed video ${youtubeId} with ${result.chunks.length} chunks`);
             } else {
               throw new Error(result.error || 'Failed to extract transcript');
             }
           } else {
-            throw new Error('Python script failed');
+            throw new Error(`Python script failed with code ${code}`);
           }
         } catch (error) {
           console.error('Video processing error:', error);
@@ -191,11 +149,11 @@ async function processQueryWithAI(question: string) {
         response,
         sourceContexts: sourceContexts.length > 0 ? sourceContexts : [
           {
-            videoTitle: "No processed videos found",
+            videoTitle: "No video sources available",
             timestamp: "N/A", 
-            excerpt: "Process some YouTube videos first to get specific video references and timestamps",
-            confidence: 75,
-            relevance: "Medium"
+            excerpt: "Successfully indexed YouTube videos will appear here with clickable timestamps",
+            confidence: 0,
+            relevance: "Low"
           }
         ],
         confidence: 90
