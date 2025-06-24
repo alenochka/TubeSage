@@ -161,32 +161,24 @@ class VectorEmbedder(BaseAgent):
         if text in self.embeddings_cache:
             return self.embeddings_cache[text]
         
-        # Mock embedding creation (in production, use OpenAI or Google API)
-        # Create a deterministic but realistic embedding
-        import hashlib
-        hash_obj = hashlib.md5(text.encode())
-        hash_hex = hash_obj.hexdigest()
+        # Use OpenAI API for embeddings
+        try:
+            import openai
+            api_key = os.getenv('OPENAI_API_KEY')
+            if api_key:
+                client = openai.OpenAI(api_key=api_key)
+                response = client.embeddings.create(
+                    model="text-embedding-ada-002",
+                    input=text
+                )
+                embedding = np.array(response.data[0].embedding, dtype=np.float32)
+                self.embeddings_cache[text] = embedding
+                return embedding
+        except Exception as e:
+            self.log_action(f"OpenAI embedding failed: {e}", "error")
         
-        # Convert hash to numbers and normalize
-        hash_numbers = [int(hash_hex[i:i+2], 16) for i in range(0, len(hash_hex), 2)]
-        
-        # Extend to vector dimension
-        while len(hash_numbers) < self.vector_dimension:
-            hash_numbers.extend(hash_numbers)
-        
-        # Take only what we need and normalize
-        embedding = np.array(hash_numbers[:self.vector_dimension], dtype=np.float32)
-        embedding = embedding / np.linalg.norm(embedding)
-        
-        # Add some noise for realism
-        noise = np.random.normal(0, 0.1, self.vector_dimension)
-        embedding = embedding + noise
-        embedding = embedding / np.linalg.norm(embedding)
-        
-        # Cache the result
-        self.embeddings_cache[text] = embedding
-        
-        return embedding
+        # This should never happen in production
+        raise Exception("OpenAI API not available - check OPENAI_API_KEY")
     
     def _cosine_similarity(self, vec1: np.ndarray, vec2: np.ndarray) -> float:
         """Calculate cosine similarity between two vectors"""

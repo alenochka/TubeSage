@@ -57,22 +57,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           }, 2000);
         } else {
-          // Fallback to simulation if Python server not available
-          setTimeout(async () => {
-            await storage.updateVideo(video.id, { 
-              status: "processing",
-              title: `Processing Video ${youtubeId}`
-            });
-          }, 1000);
+          throw new Error("Python agent server responded with error");
         }
       } catch (error) {
-        console.log("Python agent server not available, using simulation");
-        setTimeout(async () => {
-          await storage.updateVideo(video.id, { 
-            status: "processing",
-            title: `Processing Video ${youtubeId}`
-          });
-        }, 1000);
+        console.error("Failed to process video:", error);
+        await storage.updateVideo(video.id, { 
+          status: "error",
+          title: `Error processing ${youtubeId}`
+        });
+        throw error;
       }
       
       res.json({ message: "Video processing started", video });
@@ -153,7 +146,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
       } catch (error) {
-        console.log("Python agent server not available, using fallback response");
+        console.error("Python agent server error:", error);
+        throw new Error("AI processing service unavailable");
       }
       
       const responseTime = Date.now() - startTime;
