@@ -116,6 +116,7 @@ Changelog:
 - June 24, 2025: Added PostgreSQL database integration with Drizzle ORM
 - June 24, 2025: Upgraded to hybrid FAISS + PostgreSQL architecture for optimal performance
 - June 24, 2025: Resolved Python import issues and activated real OpenAI API integration
+- June 24, 2025: Enhanced system with video snippets, clickable timestamps, and database clearing functionality
 
 ## User Preferences
 
