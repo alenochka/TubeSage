@@ -202,8 +202,8 @@ async function processQueryWithAI(question: string) {
                  chunkLower.includes('babcock');
         });
         
-        // Use relevant chunks or fallback to random chunks
-        const chunksToUse = relevantChunks.length > 0 ? relevantChunks.slice(0, 2) : chunks.slice(0, 1);
+        // Use relevant chunks or fallback to random chunks, but always include more chunks for better coverage
+        const chunksToUse = relevantChunks.length > 0 ? relevantChunks.slice(0, 3) : chunks.slice(-2); // Use last 2 chunks as fallback since conclusions often contain contact info
         
         for (const chunk of chunksToUse) {
           contextText += `\n\nFrom video "${video.title}" at ${chunk.startTime}: ${chunk.content}`;
@@ -234,20 +234,17 @@ async function processQueryWithAI(question: string) {
       console.log(`Context preview: ${contextText.substring(0, 200)}...`);
       
       const systemPrompt = contextText ? 
-        `You are a specialized AI assistant analyzing YouTube video transcripts. You MUST base your answers strictly on the transcript content provided. If the transcript content doesn't contain information about the topic asked, say so clearly. Always quote specific phrases from the transcripts when answering.
+        `You are analyzing YouTube video transcripts. You must answer questions based ONLY on the transcript content provided below. If the transcript mentions the person or topic, provide a detailed answer with direct quotes. If not mentioned, clearly state it's not in the transcripts.
 
-TRANSCRIPT CONTENT:${contextText}
+${contextText}
 
-Instructions: Answer questions using ONLY the information from these transcripts. Quote specific parts when possible.` :
+IMPORTANT: Use the transcript content above to answer questions. Quote directly from it when possible.` :
         "You are a helpful AI assistant. No YouTube video transcripts are currently available to analyze.";
       
       const userPrompt = contextText ? 
-        `Using ONLY the transcript content provided in the system message, answer this question: ${question}
+        `Question: ${question}
 
-Remember to:
-1. Quote specific phrases from the transcripts
-2. If the transcript doesn't mention the topic, say so clearly
-3. Reference which video/timestamp the information comes from` :
+Answer using the transcript content provided. Include direct quotes and reference timestamps when relevant.` :
         `I don't have access to specific YouTube video transcripts. Question: ${question}`;
       
       const completion = await openai.chat.completions.create({
