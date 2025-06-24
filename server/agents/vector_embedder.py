@@ -19,7 +19,10 @@ class VectorEmbedder(BaseAgent):
         self.google_api_key = os.getenv('GOOGLE_API_KEY', '')
         
         # Initialize FAISS-powered vector database
-        from ..services.vector_db import VectorDatabase
+        import sys
+        import os
+        sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+        from services.vector_db import VectorDatabase
         self.vector_db = VectorDatabase(dimension=1536)
         self.embeddings_cache = {}
     

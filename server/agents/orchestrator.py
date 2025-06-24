@@ -1,10 +1,10 @@
 import asyncio
 from typing import Dict, Any, List
 import logging
-from .transcript_fetcher import TranscriptFetcher
-from .text_chunker import TextChunker
-from .vector_embedder import VectorEmbedder
-from .query_processor import QueryProcessor
+from transcript_fetcher import TranscriptFetcher
+from text_chunker import TextChunker
+from vector_embedder import VectorEmbedder
+from query_processor import QueryProcessor
 
 logger = logging.getLogger(__name__)
 

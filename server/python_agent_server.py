@@ -105,10 +105,10 @@ async def get_system_metrics():
 if __name__ == "__main__":
     # Run the FastAPI server
     port = int(os.environ.get("PYTHON_AGENT_PORT", "8000"))
+    print(f"Starting Python agent server on port {port}...")
     uvicorn.run(
-        "python_agent_server:app",
+        app,
         host="0.0.0.0",
         port=port,
-        reload=True,
         log_level="info"
     )
