@@ -12,8 +12,16 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
+# Set up environment
+os.environ.setdefault('PYTHONPATH', os.path.dirname(__file__))
+
 # Add the agents directory to the Python path
-sys.path.append(os.path.join(os.path.dirname(__file__), 'agents'))
+current_dir = os.path.dirname(os.path.abspath(__file__))
+agents_dir = os.path.join(current_dir, 'agents')
+services_dir = os.path.join(current_dir, 'services')
+sys.path.insert(0, current_dir)
+sys.path.insert(0, agents_dir)
+sys.path.insert(0, services_dir)
 
 from agents.orchestrator import AgentOrchestrator
 

@@ -106,8 +106,47 @@ Answer:"""
             'confidence': 0
         }
     
+    async def _generate_llm_response(self, query: str, context: str) -> str:
+        """Generate LLM response using OpenAI API"""
+        try:
+            import openai
+            import os
+            
+            # Use OpenAI API if key is available
+            api_key = os.getenv('OPENAI_API_KEY')
+            if api_key:
+                client = openai.OpenAI(api_key=api_key)
+                
+                prompt = f"""Based on the following YouTube video transcript context, please provide a comprehensive and accurate answer to the user's question.
+
+Context from video transcripts:
+{context}
+
+User's question: {query}
+
+Please provide a detailed, informative response that directly addresses the question using the information from the video transcripts. If the context doesn't contain enough information to fully answer the question, please indicate what information is available and what might be missing."""
+
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": "You are a helpful AI assistant that analyzes YouTube video transcripts and provides accurate, informative responses based on the content."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    max_tokens=500,
+                    temperature=0.7
+                )
+                
+                return response.choices[0].message.content.strip()
+            else:
+                # Fallback to mock response
+                return await self._mock_llm_response(query, context)
+        except Exception as e:
+            self.log_action(f"Failed to generate LLM response: {e}", "warning")
+            # Fallback to mock response
+            return await self._mock_llm_response(query, context)
+    
     async def _mock_llm_response(self, query: str, context: str) -> str:
-        """Mock LLM response for demonstration (replace with real API call)"""
+        """Mock LLM response for demonstration"""
         
         # Simulate processing time
         await asyncio.sleep(0.5)
