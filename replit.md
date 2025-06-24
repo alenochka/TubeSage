@@ -1,0 +1,118 @@
+# YouTube AI Agent System
+
+## Overview
+
+This is a sophisticated multi-agent YouTube transcript processing system built with a modern full-stack architecture. The application allows users to process YouTube videos, extract transcripts, create vector embeddings for semantic search, and query the content using AI-powered responses. The system employs a multi-agent architecture where specialized agents handle different aspects of the pipeline: transcript fetching, text chunking, vector embedding, and query processing.
+
+## System Architecture
+
+### Frontend Architecture
+- **Framework**: React with TypeScript
+- **UI Components**: Radix UI with shadcn/ui component library
+- **Styling**: Tailwind CSS with custom theming
+- **State Management**: TanStack Query for server state management
+- **Routing**: Wouter for client-side routing
+- **Build Tool**: Vite with custom configuration
+- **Real-time Updates**: WebSocket integration for live agent status and system logs
+
+### Backend Architecture
+- **Runtime**: Node.js with Express.js server
+- **Language**: TypeScript with ES modules
+- **API Pattern**: RESTful endpoints with structured error handling
+- **Agent System**: Python-based multi-agent architecture with FastAPI integration
+- **Real-time Communication**: WebSocket server for live updates
+
+### Data Storage Solutions
+- **Primary Database**: PostgreSQL with Neon serverless driver
+- **ORM**: Drizzle ORM with TypeScript schema definitions
+- **Vector Storage**: In-memory vector database (designed for FAISS upgrade)
+- **Session Management**: PostgreSQL-based session storage
+
+## Key Components
+
+### Multi-Agent System
+The system implements four specialized agents:
+
+1. **Transcript Fetcher Agent**: Retrieves YouTube video transcripts using the youtube-transcript-api
+2. **Text Chunker Agent**: Splits transcripts into semantic chunks using recursive character splitting
+3. **Vector Embedder Agent**: Creates embeddings and manages vector database operations
+4. **Query Processor Agent**: Handles user queries with retrieval-augmented generation
+
+### Database Schema
+- **Videos Table**: Stores YouTube video metadata, processing status, and transcript data
+- **Chunks Table**: Contains text chunks with embeddings and timestamp information
+- **Queries Table**: Logs user queries, responses, and performance metrics
+- **Agents Table**: Tracks agent status, performance metrics, and system health
+
+### API Structure
+- `/api/videos/*` - Video processing and management endpoints
+- `/api/query` - Query processing endpoint
+- `/api/agents` - Agent status and management
+- `/api/system/*` - System metrics and logging
+- `/ws` - WebSocket endpoint for real-time updates
+
+## Data Flow
+
+1. **Video Processing Pipeline**:
+   - User submits YouTube URL
+   - Transcript Fetcher Agent extracts video transcript
+   - Text Chunker Agent splits content into semantic chunks
+   - Vector Embedder Agent creates embeddings and stores in vector database
+   - System updates video status to "indexed"
+
+2. **Query Processing Flow**:
+   - User submits natural language query
+   - Vector Embedder Agent performs similarity search
+   - Query Processor Agent generates contextual response using retrieved chunks
+   - Response includes source contexts and confidence metrics
+
+3. **Real-time Updates**:
+   - WebSocket connection provides live agent status updates
+   - System logs and metrics are streamed to frontend
+   - Processing progress is communicated in real-time
+
+## External Dependencies
+
+### AI Services
+- **OpenAI API**: Text embeddings and completion generation
+- **Google Generative AI**: Alternative AI provider integration
+- **YouTube Transcript API**: Automated transcript extraction
+
+### Infrastructure
+- **Neon Database**: Serverless PostgreSQL hosting
+- **Replit**: Development and deployment platform
+- **WebSocket**: Real-time communication protocol
+
+### Key Libraries
+- **Frontend**: React, TanStack Query, Radix UI, Tailwind CSS, Wouter
+- **Backend**: Express.js, Drizzle ORM, WebSocket, Python FastAPI
+- **Utilities**: Zod validation, date-fns, class-variance-authority
+
+## Deployment Strategy
+
+### Development Environment
+- **Runtime**: Node.js 20 with PostgreSQL 16
+- **Build Process**: Vite for frontend, esbuild for backend bundling
+- **Hot Reload**: Vite development server with middleware integration
+- **Process Management**: Single npm script manages both frontend and backend
+
+### Production Deployment
+- **Target Platform**: Replit Autoscale deployment
+- **Build Command**: `npm run build` (Vite + esbuild)
+- **Start Command**: `npm run start` (production Node.js server)
+- **Port Configuration**: Internal port 5000, external port 80
+- **Static Assets**: Served from dist/public directory
+
+### Database Management
+- **Schema Migrations**: Drizzle Kit for database schema management
+- **Connection**: Environment-based DATABASE_URL configuration
+- **Session Storage**: PostgreSQL-based session management
+
+## Changelog
+
+Changelog:
+- June 24, 2025. Initial setup
+
+## User Preferences
+
+Preferred communication style: Simple, everyday language.
