@@ -38,11 +38,9 @@ export default function Sidebar() {
     <aside className="w-64 bg-white border-r border-gray-200 overflow-y-auto">
       <div className="p-6">
         <nav className="space-y-2">
-          <Link href="/">
-            <a className="flex items-center space-x-3 px-3 py-2 bg-primary/10 text-primary rounded-lg font-medium">
-              <Search className="w-5 h-5" />
-              <span>Search Transcripts</span>
-            </a>
+          <Link href="/" className="flex items-center space-x-3 px-3 py-2 bg-primary/10 text-primary rounded-lg font-medium">
+            <Search className="w-5 h-5" />
+            <span>Search Transcripts</span>
           </Link>
           <a href="#videos" className="flex items-center space-x-3 px-3 py-2 text-neutral-500 hover:bg-neutral-100 rounded-lg">
             <Video className="w-5 h-5" />
