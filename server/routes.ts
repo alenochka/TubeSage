@@ -646,6 +646,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const existingVideo = await storage.getVideoByYoutubeId(videoId);
               if (existingVideo) {
                 results.processed++;
+                console.log(`Video ${videoId} already processed, skipping...`);
                 return;
               }
 
@@ -706,9 +707,9 @@ function extractChannelId(url: string): string | null {
 }
 
 function generateMockChannelVideos(channelId: string) {
-  // Mock channel videos for demonstration
-  // In production, this would use YouTube Data API
-  const baseVideos = [
+  // Only use real, existing YouTube videos to avoid transcript errors
+  // In production, this would use YouTube Data API to fetch actual channel videos
+  const realVideos = [
     {
       id: "m2SW35yaajE",
       title: "Open Quantum Systems Theory of Ultra Weak UV Photon Emissions",
@@ -732,20 +733,26 @@ function generateMockChannelVideos(channelId: string) {
       publishedAt: "2024-01-10",
       thumbnailUrl: "https://i.ytimg.com/vi/9u7rIODg2YU/hqdefault.jpg", 
       url: "https://www.youtube.com/watch?v=9u7rIODg2YU"
+    },
+    {
+      id: "dQw4w9WgXcQ",
+      title: "Rick Astley - Never Gonna Give You Up (Official Video)",
+      duration: "3:33",
+      publishedAt: "2009-10-25",
+      thumbnailUrl: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+      url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    },
+    {
+      id: "jNQXAC9IVRw",
+      title: "Me at the zoo",
+      duration: "0:19",
+      publishedAt: "2005-04-23",
+      thumbnailUrl: "https://i.ytimg.com/vi/jNQXAC9IVRw/hqdefault.jpg",
+      url: "https://www.youtube.com/watch?v=jNQXAC9IVRw"
     }
   ];
 
-  // Generate additional mock videos for the channel
-  const additionalVideos = Array.from({ length: 12 }, (_, i) => ({
-    id: `mock_${channelId}_${i + 1}`,
-    title: `${channelId} Video ${i + 1}: Advanced Quantum Biology Research`,
-    duration: `${Math.floor(Math.random() * 30) + 5}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`,
-    publishedAt: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    thumbnailUrl: `https://i.ytimg.com/vi/mock_${channelId}_${i + 1}/hqdefault.jpg`,
-    url: `https://www.youtube.com/watch?v=mock_${channelId}_${i + 1}`
-  }));
-
-  return [...baseVideos, ...additionalVideos];
+  return realVideos;
 }
 
 function extractVideoId(url: string): string | null {

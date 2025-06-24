@@ -139,16 +139,33 @@ export default function ChannelProcessor() {
         await new Promise(resolve => setTimeout(resolve, 2000));
 
       } catch (error: any) {
-        setProcessingStatus(prev => ({
-          ...prev,
-          failedVideos: [...prev.failedVideos, { id: video.id, error: error.message }],
-        }));
+        // Don't count duplicates as failures
+        if (error.message && error.message.includes("already processed")) {
+          setProcessingStatus(prev => ({
+            ...prev,
+            processedVideos: [...prev.processedVideos, video.id],
+          }));
+        } else {
+          setProcessingStatus(prev => ({
+            ...prev,
+            failedVideos: [...prev.failedVideos, { id: video.id, error: error.message }],
+          }));
+        }
 
-        toast({
-          title: "Processing Failed",
-          description: `Failed to process "${video.title}": ${error.message}`,
-          variant: "destructive",
-        });
+        // Handle duplicate video case
+        if (error.message && error.message.includes("already processed")) {
+          toast({
+            title: "Video Skipped",
+            description: `"${video.title}" - Already processed`,
+            variant: "default",
+          });
+        } else {
+          toast({
+            title: "Processing Failed",
+            description: `Failed to process "${video.title}": ${error.message}`,
+            variant: "destructive",
+          });
+        }
       }
     }
 
