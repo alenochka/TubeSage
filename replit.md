@@ -115,6 +115,7 @@ Changelog:
 - June 24, 2025: Initial setup with multi-agent YouTube transcript system
 - June 24, 2025: Added PostgreSQL database integration with Drizzle ORM
 - June 24, 2025: Upgraded to hybrid FAISS + PostgreSQL architecture for optimal performance
+- June 24, 2025: Resolved Python import issues and activated real OpenAI API integration
 
 ## User Preferences
 
