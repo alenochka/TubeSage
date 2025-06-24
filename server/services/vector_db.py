@@ -1,7 +1,9 @@
 import numpy as np
+import faiss
 from typing import Dict, Any, List, Optional
 import json
 import os
+import pickle
 
 class VectorDatabase:
     """Simple in-memory vector database (would use FAISS in production)"""

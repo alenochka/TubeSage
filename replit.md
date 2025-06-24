@@ -23,9 +23,10 @@ This is a sophisticated multi-agent YouTube transcript processing system built w
 - **Real-time Communication**: WebSocket server for live updates
 
 ### Data Storage Solutions
-- **Primary Database**: PostgreSQL with Neon serverless driver
+- **Primary Database**: PostgreSQL with Neon serverless driver for structured data
 - **ORM**: Drizzle ORM with TypeScript schema definitions
-- **Vector Storage**: In-memory vector database (designed for FAISS upgrade)
+- **Vector Storage**: FAISS-powered vector database for high-performance similarity search
+- **Hybrid Architecture**: PostgreSQL for metadata/relational data, FAISS for vector operations
 - **Session Management**: PostgreSQL-based session storage
 
 ## Key Components
@@ -111,7 +112,9 @@ The system implements four specialized agents:
 ## Changelog
 
 Changelog:
-- June 24, 2025. Initial setup
+- June 24, 2025: Initial setup with multi-agent YouTube transcript system
+- June 24, 2025: Added PostgreSQL database integration with Drizzle ORM
+- June 24, 2025: Upgraded to hybrid FAISS + PostgreSQL architecture for optimal performance
 
 ## User Preferences
 

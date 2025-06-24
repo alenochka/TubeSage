@@ -18,8 +18,9 @@ class VectorEmbedder(BaseAgent):
         self.openai_api_key = os.getenv('OPENAI_API_KEY', '')
         self.google_api_key = os.getenv('GOOGLE_API_KEY', '')
         
-        # Initialize in-memory vector store (would be FAISS in production)
-        self.vector_store = {}
+        # Initialize FAISS-powered vector database
+        from ..services.vector_db import VectorDatabase
+        self.vector_db = VectorDatabase(dimension=1536)
         self.embeddings_cache = {}
     
     async def process_task(self, task: Dict[str, Any]) -> Dict[str, Any]:

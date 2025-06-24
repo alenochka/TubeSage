@@ -52,250 +52,179 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  private videos: Map<number, Video> = new Map();
-  private chunks: Map<number, Chunk> = new Map();
-  private queries: Map<number, Query> = new Map();
-  private agents: Map<number, Agent> = new Map();
-  private agentLogs: Map<number, AgentLog> = new Map();
-  
-  private currentVideoId = 1;
-  private currentChunkId = 1;
-  private currentQueryId = 1;
-  private currentAgentId = 1;
-  private currentLogId = 1;
-
   constructor() {
-    // Initialize default agents
     this.initializeAgents();
   }
 
-  private async initializeAgents() {
-    const defaultAgents = [
-      {
-        name: "Transcript Fetcher",
-        description: "Retrieves and processes YouTube video transcripts using the youtube-transcript-api",
-        status: "active" as const,
-        lastAction: "Processed video transcript",
-        queueCount: 3,
-        uptime: 135,
-        totalTasks: 47,
-        successfulTasks: 45
-      },
-      {
-        name: "Text Chunker",
-        description: "Splits transcripts into optimal chunks using RecursiveCharacterTextSplitter",
-        status: "active" as const,
-        lastAction: "Created 156 chunks",
-        queueCount: 1,
-        uptime: 132,
-        totalTasks: 38,
-        successfulTasks: 38
-      },
-      {
-        name: "Vector Embedder",
-        description: "Creates embeddings and manages FAISS vector database operations",
-        status: "active" as const,
-        lastAction: "Updated vector index",
-        queueCount: 0,
-        uptime: 128,
-        totalTasks: 35,
-        successfulTasks: 34
-      },
-      {
-        name: "Query Processor",
-        description: "Handles user queries and retrieval-augmented generation responses",
-        status: "active" as const,
-        lastAction: "Generated response",
-        queueCount: 0,
-        uptime: 125,
-        totalTasks: 142,
-        successfulTasks: 140
+  async initializeAgents() {
+    try {
+      // Check if agents already exist
+      const existingAgents = await this.getAllAgents();
+      if (existingAgents.length > 0) {
+        return; // Agents already initialized
       }
-    ];
 
-    for (const agentData of defaultAgents) {
-      await this.createAgent(agentData);
+      // Initialize default agents
+      const defaultAgents = [
+        {
+          name: "Transcript Fetcher",
+          description: "Retrieves YouTube video transcripts",
+          status: "active",
+          lastAction: "Waiting for tasks",
+          queueCount: 0,
+          uptime: 0,
+          totalTasks: 0,
+          successfulTasks: 0
+        },
+        {
+          name: "Text Chunker", 
+          description: "Splits transcripts into semantic chunks",
+          status: "active",
+          lastAction: "Waiting for tasks",
+          queueCount: 0,
+          uptime: 0,
+          totalTasks: 0,
+          successfulTasks: 0
+        },
+        {
+          name: "Vector Embedder",
+          description: "Creates embeddings and manages vector database",
+          status: "active", 
+          lastAction: "Waiting for tasks",
+          queueCount: 0,
+          uptime: 0,
+          totalTasks: 0,
+          successfulTasks: 0
+        },
+        {
+          name: "Query Processor",
+          description: "Processes user queries and generates responses",
+          status: "active",
+          lastAction: "Waiting for tasks", 
+          queueCount: 0,
+          uptime: 0,
+          totalTasks: 0,
+          successfulTasks: 0
+        }
+      ];
+
+      for (const agentData of defaultAgents) {
+        await this.createAgent(agentData);
+      }
+    } catch (error) {
+      console.error("Error initializing agents:", error);
     }
   }
 
   // Video operations
   async getVideo(id: number): Promise<Video | undefined> {
-    return this.videos.get(id);
+    const [video] = await db.select().from(videos).where(eq(videos.id, id));
+    return video || undefined;
   }
 
   async getVideoByYoutubeId(youtubeId: string): Promise<Video | undefined> {
-    return Array.from(this.videos.values()).find(video => video.youtubeId === youtubeId);
+    const [video] = await db.select().from(videos).where(eq(videos.youtubeId, youtubeId));
+    return video || undefined;
   }
 
   async getAllVideos(): Promise<Video[]> {
-    return Array.from(this.videos.values()).sort((a, b) => 
-      new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
-    );
+    return await db.select().from(videos).orderBy(desc(videos.createdAt));
   }
 
   async createVideo(insertVideo: InsertVideo): Promise<Video> {
-    const video: Video = {
-      ...insertVideo,
-      id: this.currentVideoId++,
-      status: insertVideo.status || "pending",
-      transcriptData: insertVideo.transcriptData || null,
-      chunkCount: insertVideo.chunkCount || 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.videos.set(video.id, video);
+    const [video] = await db.insert(videos).values(insertVideo).returning();
     return video;
   }
 
   async updateVideo(id: number, updates: Partial<InsertVideo>): Promise<Video> {
-    const video = this.videos.get(id);
-    if (!video) throw new Error(`Video with id ${id} not found`);
-    
-    const updatedVideo = { 
-      ...video, 
-      ...updates, 
-      updatedAt: new Date() 
-    };
-    this.videos.set(id, updatedVideo);
-    return updatedVideo;
+    const [video] = await db.update(videos).set(updates).where(eq(videos.id, id)).returning();
+    return video;
   }
 
   async deleteVideo(id: number): Promise<void> {
-    this.videos.delete(id);
-    // Also delete associated chunks
-    await this.deleteChunksByVideoId(id);
+    await db.delete(videos).where(eq(videos.id, id));
   }
 
   // Chunk operations
   async getChunksByVideoId(videoId: number): Promise<Chunk[]> {
-    return Array.from(this.chunks.values())
-      .filter(chunk => chunk.videoId === videoId)
-      .sort((a, b) => a.chunkIndex - b.chunkIndex);
+    return await db.select().from(chunks).where(eq(chunks.videoId, videoId)).orderBy(chunks.chunkIndex);
   }
 
   async createChunk(insertChunk: InsertChunk): Promise<Chunk> {
-    const chunk: Chunk = {
-      ...insertChunk,
-      id: this.currentChunkId++,
-      videoId: insertChunk.videoId || null,
-      startTime: insertChunk.startTime || null,
-      endTime: insertChunk.endTime || null,
-      embedding: insertChunk.embedding || null,
-      createdAt: new Date(),
-    };
-    this.chunks.set(chunk.id, chunk);
+    const [chunk] = await db.insert(chunks).values(insertChunk).returning();
     return chunk;
   }
 
   async deleteChunksByVideoId(videoId: number): Promise<void> {
-    const chunksToDelete = Array.from(this.chunks.entries())
-      .filter(([_, chunk]) => chunk.videoId === videoId)
-      .map(([id, _]) => id);
-    
-    chunksToDelete.forEach(id => this.chunks.delete(id));
+    await db.delete(chunks).where(eq(chunks.videoId, videoId));
   }
 
   // Query operations
   async getQuery(id: number): Promise<Query | undefined> {
-    return this.queries.get(id);
+    const [query] = await db.select().from(queries).where(eq(queries.id, id));
+    return query || undefined;
   }
 
   async getAllQueries(): Promise<Query[]> {
-    return Array.from(this.queries.values()).sort((a, b) => 
-      new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
-    );
+    return await db.select().from(queries).orderBy(desc(queries.createdAt));
   }
 
   async createQuery(insertQuery: InsertQuery): Promise<Query> {
-    const query: Query = {
-      ...insertQuery,
-      id: this.currentQueryId++,
-      response: insertQuery.response || null,
-      sourceContexts: insertQuery.sourceContexts || null,
-      confidence: insertQuery.confidence || null,
-      responseTime: insertQuery.responseTime || null,
-      createdAt: new Date(),
-    };
-    this.queries.set(query.id, query);
+    const [query] = await db.insert(queries).values(insertQuery).returning();
     return query;
   }
 
   // Agent operations
   async getAgent(id: number): Promise<Agent | undefined> {
-    return this.agents.get(id);
+    const [agent] = await db.select().from(agents).where(eq(agents.id, id));
+    return agent || undefined;
   }
 
   async getAgentByName(name: string): Promise<Agent | undefined> {
-    return Array.from(this.agents.values()).find(agent => agent.name === name);
+    const [agent] = await db.select().from(agents).where(eq(agents.name, name));
+    return agent || undefined;
   }
 
   async getAllAgents(): Promise<Agent[]> {
-    return Array.from(this.agents.values());
+    return await db.select().from(agents).orderBy(agents.name);
   }
 
   async createAgent(insertAgent: InsertAgent): Promise<Agent> {
-    const agent: Agent = {
-      ...insertAgent,
-      id: this.currentAgentId++,
-      status: insertAgent.status || "inactive",
-      lastAction: insertAgent.lastAction || null,
-      queueCount: insertAgent.queueCount || 0,
-      uptime: insertAgent.uptime || 0,
-      totalTasks: insertAgent.totalTasks || 0,
-      successfulTasks: insertAgent.successfulTasks || 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.agents.set(agent.id, agent);
+    const [agent] = await db.insert(agents).values(insertAgent).returning();
     return agent;
   }
 
   async updateAgent(id: number, updates: Partial<InsertAgent>): Promise<Agent> {
-    const agent = this.agents.get(id);
-    if (!agent) throw new Error(`Agent with id ${id} not found`);
-    
-    const updatedAgent = { 
-      ...agent, 
-      ...updates, 
-      updatedAt: new Date() 
-    };
-    this.agents.set(id, updatedAgent);
-    return updatedAgent;
+    const [agent] = await db.update(agents).set(updates).where(eq(agents.id, id)).returning();
+    return agent;
   }
 
   // Agent log operations
   async getAgentLogs(limit: number = 50): Promise<AgentLog[]> {
-    return Array.from(this.agentLogs.values())
-      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
-      .slice(0, limit);
+    return await db.select().from(agentLogs).orderBy(desc(agentLogs.createdAt)).limit(limit);
   }
 
   async getAgentLogsByAgent(agentId: number, limit: number = 20): Promise<AgentLog[]> {
-    return Array.from(this.agentLogs.values())
-      .filter(log => log.agentId === agentId)
-      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
-      .slice(0, limit);
+    return await db.select().from(agentLogs)
+      .where(eq(agentLogs.agentId, agentId))
+      .orderBy(desc(agentLogs.createdAt))
+      .limit(limit);
   }
 
   async createAgentLog(insertLog: InsertAgentLog): Promise<AgentLog> {
-    const log: AgentLog = {
-      ...insertLog,
-      id: this.currentLogId++,
-      agentId: insertLog.agentId || null,
-      level: insertLog.level || "info",
-      createdAt: new Date(),
-    };
-    this.agentLogs.set(log.id, log);
+    const [log] = await db.insert(agentLogs).values(insertLog).returning();
     return log;
   }
 
   // Statistics
   async getVideoCount(): Promise<number> {
-    return this.videos.size;
+    const [result] = await db.select({ count: count() }).from(videos);
+    return result.count;
   }
 
   async getTotalChunks(): Promise<number> {
-    return this.chunks.size;
+    const [result] = await db.select({ count: count() }).from(chunks);
+    return result.count;
   }
 
   async getSystemMetrics(): Promise<{
@@ -304,14 +233,21 @@ export class DatabaseStorage implements IStorage {
     successRate: number;
     memoryUsage: string;
   }> {
-    const queries = Array.from(this.queries.values());
-    const totalCalls = queries.length;
-    const avgResponseTime = queries.length > 0 
-      ? queries.reduce((sum, q) => sum + (q.responseTime || 0), 0) / queries.length
+    // Calculate API calls from queries
+    const totalCalls = await this.getTotalChunks();
+    
+    // Calculate average response time from recent queries
+    const recentQueries = await db.select({ responseTime: queries.responseTime })
+      .from(queries)
+      .where(eq(queries.responseTime, queries.responseTime))
+      .limit(100);
+    
+    const avgResponseTime = recentQueries.length > 0 
+      ? recentQueries.reduce((sum, q) => sum + (q.responseTime || 0), 0) / recentQueries.length
       : 0;
     
     // Calculate success rate from agent tasks
-    const allAgents = Array.from(this.agents.values());
+    const allAgents = await this.getAllAgents();
     const totalTasks = allAgents.reduce((sum, agent) => sum + (agent.totalTasks || 0), 0);
     const successfulTasks = allAgents.reduce((sum, agent) => sum + (agent.successfulTasks || 0), 0);
     const successRate = totalTasks > 0 ? (successfulTasks / totalTasks) * 100 : 100;
@@ -319,8 +255,8 @@ export class DatabaseStorage implements IStorage {
     return {
       apiCalls: totalCalls,
       avgResponseTime: Math.round(avgResponseTime),
-      successRate: Math.round(successRate * 10) / 10,
-      memoryUsage: "847 MB"
+      successRate: Math.round(successRate),
+      memoryUsage: "PostgreSQL"
     };
   }
 }
