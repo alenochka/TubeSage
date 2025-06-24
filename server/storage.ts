@@ -6,6 +6,8 @@ import {
   type Agent, type InsertAgent,
   type AgentLog, type InsertAgentLog
 } from "@shared/schema";
+import { eq, desc, count } from "drizzle-orm";
+import { db } from "./db";
 
 export interface IStorage {
   // Video operations
@@ -49,7 +51,7 @@ export interface IStorage {
   }>;
 }
 
-export class MemStorage implements IStorage {
+export class DatabaseStorage implements IStorage {
   private videos: Map<number, Video> = new Map();
   private chunks: Map<number, Chunk> = new Map();
   private queries: Map<number, Query> = new Map();
@@ -323,4 +325,4 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
