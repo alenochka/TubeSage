@@ -7,6 +7,7 @@ import ResultsDisplay from "@/components/results-display";
 import VectorDatabase from "@/components/vector-database";
 import AgentPanel from "@/components/agent-panel";
 import AgentDiagram from "@/components/agent-diagram";
+import ChannelProcessor from "@/components/channel-processor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useWebSocket } from "@/hooks/use-websocket";

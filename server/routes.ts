@@ -588,6 +588,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }, 30000); // Update every 30 seconds
 
+  // Channel processing endpoints
+  app.post("/api/channels/videos", async (req, res) => {
+    try {
+      const { channelUrl } = req.body;
+      
+      if (!channelUrl) {
+        return res.status(400).json({ error: "Channel URL is required" });
+      }
+
+      // Extract channel identifier from URL
+      const channelId = extractChannelId(channelUrl);
+      if (!channelId) {
+        return res.status(400).json({ error: "Invalid channel URL format" });
+      }
+
+      // Mock channel video fetching (in production, use YouTube Data API)
+      const mockVideos = generateMockChannelVideos(channelId);
+      
+      res.json({
+        channelId,
+        videos: mockVideos,
+        totalCount: mockVideos.length
+      });
+    } catch (error: any) {
+      console.error("Error fetching channel videos:", error);
+      res.status(500).json({ error: "Failed to fetch channel videos" });
+    }
+  });
+
+  app.post("/api/channels/process", async (req, res) => {
+    try {
+      const { channelUrl, videos } = req.body;
+      
+      if (!channelUrl || !videos || !Array.isArray(videos)) {
+        return res.status(400).json({ error: "Channel URL and videos array are required" });
+      }
+
+      // Process videos in batches to avoid overwhelming the system
+      const batchSize = 3;
+      const results = {
+        processed: 0,
+        failed: 0,
+        errors: [] as string[]
+      };
+
+      for (let i = 0; i < videos.length; i += batchSize) {
+        const batch = videos.slice(i, i + batchSize);
+        
+        await Promise.allSettled(
+          batch.map(async (video: any) => {
+            try {
+              const videoId = extractVideoId(video.url);
+              if (!videoId) throw new Error("Invalid video URL");
+
+              // Check if video already exists
+              const existingVideo = await storage.getVideoByYoutubeId(videoId);
+              if (existingVideo) {
+                results.processed++;
+                return;
+              }
+
+              // Process the video
+              const newVideo = await storage.createVideo({
+                youtubeId: videoId,
+                title: video.title,
+                duration: video.duration,
+                status: "pending"
+              });
+              
+              await processVideoWithAI(videoId, newVideo.id);
+              results.processed++;
+            } catch (error: any) {
+              results.failed++;
+              results.errors.push(`${video.title}: ${error.message}`);
+            }
+          })
+        );
+
+        // Wait between batches to avoid rate limiting
+        if (i + batchSize < videos.length) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+
+      res.json({
+        channelUrl,
+        totalVideos: videos.length,
+        processed: results.processed,
+        failed: results.failed,
+        errors: results.errors
+      });
+    } catch (error: any) {
+      console.error("Error processing channel:", error);
+      res.status(500).json({ error: "Failed to process channel" });
+    }
+  });
+
   return httpServer;
 }
 
