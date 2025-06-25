@@ -1,9 +1,16 @@
 import os
 import asyncio
+import sys
 from typing import Dict, Any
-from youtube_transcript_api import YouTubeTranscriptApi
-import re
 from .base_agent import BaseAgent
+
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+try:
+    from services.youtube_api import YouTubeAPI
+except ImportError:
+    YouTubeAPI = None
 
 class TranscriptFetcher(BaseAgent):
     """Agent responsible for fetching YouTube video transcripts"""
@@ -11,9 +18,9 @@ class TranscriptFetcher(BaseAgent):
     def __init__(self):
         super().__init__(
             name="Transcript Fetcher",
-            description="Retrieves and processes YouTube video transcripts using the youtube-transcript-api"
+            description="Fetches YouTube video metadata and captions using YouTube Data API v3"
         )
-        self.youtube_api_key = os.getenv('YOUTUBE_API_KEY', '')
+        self.youtube_api = YouTubeAPI() if YouTubeAPI else None
     
     async def process_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """Process a transcript fetching task"""
