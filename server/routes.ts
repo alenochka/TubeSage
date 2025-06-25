@@ -717,9 +717,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { title, topic, field, level, description, prerequisites, learningOutcomes, videos } = req.body;
       
-      if (!title || !topic || !field || !videos || videos.length === 0) {
+      if (!title || !topic || !field) {
         return res.status(400).json({ error: "Missing required course data" });
       }
+
+      console.log(`Generating course from existing videos: "${topic}" in ${field} (${level} level)`);
+      
+      // Get all videos from database instead of using provided videos array
+      const allVideos = await storage.getAllVideos();
+      console.log(`Found ${allVideos.length} total videos in database`);
+      
+      // Filter videos by relevance to topic and field
+      const relevantVideos = allVideos
+        .filter(video => {
+          const title = video.title.toLowerCase();
+          const topicLower = topic.toLowerCase();
+          const fieldLower = field.toLowerCase();
+          
+          // Check if video title contains topic or field keywords
+          return title.includes(topicLower) || 
+                 title.includes(fieldLower) ||
+                 topicLower.split(' ').some(word => title.includes(word)) ||
+                 fieldLower.split(' ').some(word => title.includes(word));
+        })
+        .map(video => ({
+          youtubeId: video.youtubeId,
+          title: video.title,
+          duration: video.duration || '0:00',
+          channelTitle: 'Database Video',
+          publishedAt: video.createdAt?.toISOString() || new Date().toISOString(),
+          relevanceScore: calculateVideoRelevance(video.title, topic, field),
+          theoreticalDepth: 0.8,
+          practicalValue: 0.8,
+          keyTopics: [topic, field],
+          field: field.toLowerCase()
+        }))
+        .sort((a, b) => b.relevanceScore - a.relevanceScore)
+        .slice(0, 6); // Limit to 6 most relevant videos
+      
+      if (relevantVideos.length === 0) {
+        return res.status(404).json({ 
+          error: 'No relevant videos found in database for this topic',
+          topic,
+          field,
+          level,
+          availableVideos: allVideos.length
+        });
+      }
+      
+      console.log(`Found ${relevantVideos.length} relevant videos from database`);
 
       // Create the course
       const course = await storage.createCourse({
@@ -1664,10 +1710,14 @@ async function fetchChannelVideos(channelId: string) {
 
   try {
     // First, get the channel's uploads playlist ID
-    const channelUrl = `https://www.googleapis.com/youtube/v3/channels?` +
-      `part=contentDetails&` +
-      `${channelId.startsWith('UC') ? 'id' : 'forUsername'}=${channelId}&` +
-      `key=${apiKey}`;
+    // Handle @username format by using forHandle parameter
+    let channelUrl;
+    if (channelId.startsWith('UC')) {
+      channelUrl = `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${channelId}&key=${apiKey}`;
+    } else {
+      // For @username or username, try forHandle first
+      channelUrl = `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&forHandle=${channelId}&key=${apiKey}`;
+    }
 
     const channelResponse = await fetch(channelUrl);
     if (!channelResponse.ok) {
@@ -1676,71 +1726,87 @@ async function fetchChannelVideos(channelId: string) {
 
     const channelData = await channelResponse.json();
     if (!channelData.items || channelData.items.length === 0) {
-      throw new Error("Channel not found");
+      // If forHandle failed, try forUsername as fallback
+      if (!channelId.startsWith('UC')) {
+        const fallbackUrl = `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&forUsername=${channelId}&key=${apiKey}`;
+        const fallbackResponse = await fetch(fallbackUrl);
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json();
+          if (fallbackData.items && fallbackData.items.length > 0) {
+            const uploadsPlaylistId = fallbackData.items[0].contentDetails.relatedPlaylists.uploads;
+            return await getPlaylistVideos(uploadsPlaylistId, apiKey);
+          }
+        }
+      }
+      throw new Error("Channel not found - try using the full channel URL or channel ID");
     }
 
     const uploadsPlaylistId = channelData.items[0].contentDetails.relatedPlaylists.uploads;
-
-    // Now get videos from the uploads playlist (up to 50 videos)
-    const playlistUrl = `https://www.googleapis.com/youtube/v3/playlistItems?` +
-      `part=snippet&` +
-      `playlistId=${uploadsPlaylistId}&` +
-      `maxResults=50&` +
-      `key=${apiKey}`;
-
-    const playlistResponse = await fetch(playlistUrl);
-    if (!playlistResponse.ok) {
-      throw new Error(`YouTube playlist API error: ${playlistResponse.statusText}`);
-    }
-
-    const playlistData = await playlistResponse.json();
-    
-    if (!playlistData.items || playlistData.items.length === 0) {
-      return [];
-    }
-
-    // Get detailed video information
-    const videoIds = playlistData.items
-      .map((item: any) => item.snippet.resourceId.videoId)
-      .join(',');
-
-    const videosUrl = `https://www.googleapis.com/youtube/v3/videos?` +
-      `part=snippet,contentDetails,statistics&` +
-      `id=${videoIds}&` +
-      `key=${apiKey}`;
-
-    const videosResponse = await fetch(videosUrl);
-    if (!videosResponse.ok) {
-      throw new Error(`YouTube videos API error: ${videosResponse.statusText}`);
-    }
-
-    const videosData = await videosResponse.json();
-
-    // Format videos for the interface
-    const channelVideos = videosData.items
-      .filter((item: any) => {
-        // Filter out shorts and very short videos
-        const duration = parseDuration(item.contentDetails.duration);
-        return duration >= 60; // At least 1 minute
-      })
-      .map((item: any) => ({
-        id: item.id,
-        title: item.snippet.title,
-        duration: formatDuration(item.contentDetails.duration),
-        publishedAt: item.snippet.publishedAt.split('T')[0],
-        thumbnailUrl: item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url,
-        url: `https://www.youtube.com/watch?v=${item.id}`,
-        viewCount: parseInt(item.statistics.viewCount || '0'),
-        description: item.snippet.description?.substring(0, 200) + '...' || ''
-      }));
-
-    console.log(`Found ${channelVideos.length} videos for channel ${channelId}`);
-    return channelVideos;
+    return await getPlaylistVideos(uploadsPlaylistId, apiKey);
 
   } catch (error) {
     console.error('Error fetching channel videos:', error);
     throw error;
   }
+}
+
+// Helper function to get videos from a playlist
+async function getPlaylistVideos(uploadsPlaylistId: string, apiKey: string) {
+  // Get videos from the uploads playlist (up to 50 videos)
+  const playlistUrl = `https://www.googleapis.com/youtube/v3/playlistItems?` +
+    `part=snippet&` +
+    `playlistId=${uploadsPlaylistId}&` +
+    `maxResults=50&` +
+    `key=${apiKey}`;
+
+  const playlistResponse = await fetch(playlistUrl);
+  if (!playlistResponse.ok) {
+    throw new Error(`YouTube playlist API error: ${playlistResponse.statusText}`);
+  }
+
+  const playlistData = await playlistResponse.json();
+  
+  if (!playlistData.items || playlistData.items.length === 0) {
+    return [];
+  }
+
+  // Get detailed video information
+  const videoIds = playlistData.items
+    .map((item: any) => item.snippet.resourceId.videoId)
+    .join(',');
+
+  const videosUrl = `https://www.googleapis.com/youtube/v3/videos?` +
+    `part=snippet,contentDetails,statistics&` +
+    `id=${videoIds}&` +
+    `key=${apiKey}`;
+
+  const videosResponse = await fetch(videosUrl);
+  if (!videosResponse.ok) {
+    throw new Error(`YouTube videos API error: ${videosResponse.statusText}`);
+  }
+
+  const videosData = await videosResponse.json();
+
+  // Format videos for the interface
+  const channelVideos = videosData.items
+    .filter((item: any) => {
+      // Filter out shorts and very short videos
+      const duration = parseDuration(item.contentDetails.duration);
+      return duration >= 60; // At least 1 minute
+    })
+    .map((item: any) => ({
+      id: item.id,
+      title: item.snippet.title,
+      duration: formatDuration(item.contentDetails.duration),
+      publishedAt: item.snippet.publishedAt.split('T')[0],
+      thumbnailUrl: item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url,
+      url: `https://www.youtube.com/watch?v=${item.id}`,
+      viewCount: parseInt(item.statistics.viewCount || '0'),
+      description: item.snippet.description?.substring(0, 200) + '...' || ''
+    }));
+
+  console.log(`Found ${channelVideos.length} videos in playlist`);
+  return channelVideos;
 }
 
 // Helper function to parse ISO 8601 duration
@@ -1767,6 +1833,34 @@ function formatDuration(isoDuration: string): string {
   } else {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   }
+}
+
+// Calculate relevance score for database videos
+function calculateVideoRelevance(title: string, topic: string, field: string): number {
+  let score = 0;
+  const titleLower = title.toLowerCase();
+  const topicLower = topic.toLowerCase();
+  const fieldLower = field.toLowerCase();
+  
+  // Exact topic match
+  if (titleLower.includes(topicLower)) score += 0.5;
+  
+  // Exact field match
+  if (titleLower.includes(fieldLower)) score += 0.3;
+  
+  // Partial word matches
+  const topicWords = topicLower.split(' ');
+  const fieldWords = fieldLower.split(' ');
+  
+  topicWords.forEach(word => {
+    if (word.length > 3 && titleLower.includes(word)) score += 0.1;
+  });
+  
+  fieldWords.forEach(word => {
+    if (word.length > 3 && titleLower.includes(word)) score += 0.05;
+  });
+  
+  return Math.min(score, 1.0);
 }
 
 function extractVideoId(url: string): string | null {
