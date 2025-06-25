@@ -11,6 +11,7 @@ import AgentDiagram from "@/components/agent-diagram";
 import ChannelProcessor from "@/components/channel-processor";
 import CourseBuilderSimple from "@/components/course-builder-simple";
 import CourseLibrary from "@/components/course-library";
+import TranscriptStatusBanner from "@/components/transcript-status-banner";
 import CourseViewer from "@/components/course-viewer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

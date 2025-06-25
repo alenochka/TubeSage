@@ -48,13 +48,13 @@ async function processVideoWithAI(youtubeId: string, videoId: number) {
               const method = result.method_used || 'standard';
               await storage.createAgentLog({
                 agentName: "Transcript Fetcher",
-                message: `Successfully extracted transcript for video ${youtubeId} using ${method} method with ${result.chunks.length} chunks`,
-                level: "info"
+                message: `Video ${youtubeId} processed with placeholder transcript (YouTube blocks cloud infrastructure extraction)`,
+                level: "warning"
               });
               
-              // Update video with real data including title
+              // Update video with placeholder status
               await storage.updateVideo(videoId, { 
-                status: "indexed",
+                status: "placeholder_content",
                 title: result.title || `Video ${youtubeId}`,
                 duration: result.duration,
                 chunkCount: result.chunks.length,
