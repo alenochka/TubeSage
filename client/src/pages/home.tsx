@@ -8,7 +8,7 @@ import VectorDatabase from "@/components/vector-database";
 import AgentPanel from "@/components/agent-panel";
 import AgentDiagram from "@/components/agent-diagram";
 import ChannelProcessor from "@/components/channel-processor";
-import CourseBuilder from "@/components/course-builder";
+import CourseBuilderSimple from "@/components/course-builder-simple";
 import CourseLibrary from "@/components/course-library";
 import CourseViewer from "@/components/course-viewer";
 import { Badge } from "@/components/ui/badge";
@@ -66,7 +66,7 @@ export default function Home() {
             <ChannelProcessor />
 
             {/* Course Builder */}
-            <CourseBuilder onCourseCreated={(course) => {
+            <CourseBuilderSimple onCourseCreated={(course) => {
               setSelectedCourse(course);
             }} />
 
