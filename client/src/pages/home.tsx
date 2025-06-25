@@ -8,6 +8,8 @@ import VectorDatabase from "@/components/vector-database";
 import AgentPanel from "@/components/agent-panel";
 import AgentDiagram from "@/components/agent-diagram";
 import ChannelProcessor from "@/components/channel-processor";
+import CourseBuilder from "@/components/course-builder";
+import CourseLibrary from "@/components/course-library";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useWebSocket } from "@/hooks/use-websocket";

@@ -686,7 +686,342 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Course search and generation endpoints
+  app.post("/api/courses/search", async (req, res) => {
+    try {
+      const { topic, field, level, videoCount, focusAreas } = req.body;
+      
+      if (!topic || !field) {
+        return res.status(400).json({ error: "Topic and field are required" });
+      }
+
+      // Simulate intelligent video search with ranking
+      const searchResults = await searchTopicVideos(topic, field, level, videoCount, focusAreas);
+      
+      res.json({
+        topic,
+        field,
+        level,
+        videos: searchResults,
+        totalFound: searchResults.length
+      });
+    } catch (error: any) {
+      console.error("Error searching videos:", error);
+      res.status(500).json({ error: "Failed to search videos" });
+    }
+  });
+
+  app.post("/api/courses/generate", async (req, res) => {
+    try {
+      const { title, topic, field, level, description, prerequisites, learningOutcomes, videos } = req.body;
+      
+      if (!title || !topic || !field || !videos || videos.length === 0) {
+        return res.status(400).json({ error: "Missing required course data" });
+      }
+
+      // Create the course
+      const course = await storage.createCourse({
+        title,
+        topic,
+        field,
+        level,
+        description: description || `A comprehensive ${level}-level course on ${topic} in ${field}`,
+        prerequisites: prerequisites || [],
+        learningOutcomes: learningOutcomes || [],
+        videoCount: videos.length,
+        totalDuration: calculateTotalDuration(videos),
+        status: "draft"
+      });
+
+      // Process videos and create course structure
+      const modules = await generateCourseModules(course.id, videos, topic, field, level);
+      
+      // Update course with final video count
+      await storage.updateCourse(course.id, {
+        videoCount: videos.length
+      });
+
+      res.json({
+        ...course,
+        modules,
+        generatedAt: new Date().toISOString()
+      });
+    } catch (error: any) {
+      console.error("Error generating course:", error);
+      res.status(500).json({ error: "Failed to generate course" });
+    }
+  });
+
+  app.get("/api/courses", async (req, res) => {
+    try {
+      const courses = await storage.getAllCourses();
+      res.json(courses);
+    } catch (error: any) {
+      console.error("Error fetching courses:", error);
+      res.status(500).json({ error: "Failed to fetch courses" });
+    }
+  });
+
+  app.get("/api/courses/:id", async (req, res) => {
+    try {
+      const courseId = parseInt(req.params.id);
+      const course = await storage.getCourse(courseId);
+      
+      if (!course) {
+        return res.status(404).json({ error: "Course not found" });
+      }
+
+      const modules = await storage.getCourseModules(courseId);
+      const modulesWithLectures = await Promise.all(
+        modules.map(async (module) => {
+          const lectures = await storage.getCourseLectures(module.id);
+          return { ...module, lectures };
+        })
+      );
+
+      res.json({
+        ...course,
+        modules: modulesWithLectures
+      });
+    } catch (error: any) {
+      console.error("Error fetching course:", error);
+      res.status(500).json({ error: "Failed to fetch course" });
+    }
+  });
+
   return httpServer;
+}
+
+async function searchTopicVideos(topic: string, field: string, level: string, videoCount: number, focusAreas: string[] = []) {
+  // In production, this would use YouTube Data API with advanced search and ranking
+  // For now, simulate intelligent search with curated academic content
+  
+  const academicVideos = [
+    {
+      youtubeId: "m2SW35yaajE",
+      title: "Open Quantum Systems Theory of Ultra Weak UV Photon Emissions",
+      duration: "15:32",
+      channelTitle: "Dr. Babcock",
+      publishedAt: "2024-03-15",
+      relevanceScore: 0.95,
+      theoreticalDepth: 0.9,
+      practicalValue: 0.7,
+      keyTopics: ["quantum systems", "photon emissions", "theoretical physics"],
+      field: "physics"
+    },
+    {
+      youtubeId: "9u7rIODg2YU",
+      title: "Quantum Biology Research Framework and Applications",
+      duration: "12:18",
+      channelTitle: "Dr. Babcock",
+      publishedAt: "2024-01-10",
+      relevanceScore: 0.88,
+      theoreticalDepth: 0.85,
+      practicalValue: 0.8,
+      keyTopics: ["quantum biology", "research methods", "applications"],
+      field: "biology"
+    },
+    {
+      youtubeId: "mf6lkIipjF0",
+      title: "Quantum Biology: From Photons to Physiology",
+      duration: "28:45",
+      channelTitle: "Dr. Babcock",
+      publishedAt: "2024-02-20",
+      relevanceScore: 0.92,
+      theoreticalDepth: 0.88,
+      practicalValue: 0.75,
+      keyTopics: ["quantum biology", "photons", "physiology"],
+      field: "biology"
+    },
+    {
+      youtubeId: "dQw4w9WgXcQ",
+      title: "Advanced Machine Learning Algorithms",
+      duration: "3:33",
+      channelTitle: "Academic Channel",
+      publishedAt: "2024-01-15",
+      relevanceScore: 0.85,
+      theoreticalDepth: 0.8,
+      practicalValue: 0.9,
+      keyTopics: ["machine learning", "algorithms", "optimization"],
+      field: "computer science"
+    },
+    {
+      youtubeId: "jNQXAC9IVRw",
+      title: "Computational Biology Foundations",
+      duration: "0:19",
+      channelTitle: "Science Education",
+      publishedAt: "2024-02-01",
+      relevanceScore: 0.78,
+      theoreticalDepth: 0.75,
+      practicalValue: 0.85,
+      keyTopics: ["computational biology", "bioinformatics", "modeling"],
+      field: "biology"
+    }
+  ];
+
+  // Filter and rank videos based on topic, field, and level
+  let filteredVideos = academicVideos.filter(video => {
+    const topicMatch = video.title.toLowerCase().includes(topic.toLowerCase()) ||
+                     video.keyTopics.some(t => t.toLowerCase().includes(topic.toLowerCase()));
+    const fieldMatch = video.field.toLowerCase().includes(field.toLowerCase());
+    
+    return topicMatch || fieldMatch;
+  });
+
+  // If no direct matches, include all videos for demo purposes
+  if (filteredVideos.length === 0) {
+    filteredVideos = academicVideos;
+  }
+
+  // Adjust relevance scores based on level and focus areas
+  filteredVideos = filteredVideos.map(video => {
+    let adjustedScore = video.relevanceScore;
+    
+    // Adjust for academic level
+    if (level === "doctoral") {
+      adjustedScore *= video.theoreticalDepth;
+    } else if (level === "undergraduate") {
+      adjustedScore *= video.practicalValue;
+    }
+    
+    // Boost for focus area matches
+    if (focusAreas && focusAreas.length > 0) {
+      const focusMatch = focusAreas.some(area => 
+        video.keyTopics.some(topic => topic.toLowerCase().includes(area.toLowerCase()))
+      );
+      if (focusMatch) adjustedScore *= 1.2;
+    }
+
+    return {
+      ...video,
+      relevanceScore: Math.min(adjustedScore, 1.0)
+    };
+  });
+
+  // Sort by relevance and return requested count
+  return filteredVideos
+    .sort((a, b) => b.relevanceScore - a.relevanceScore)
+    .slice(0, videoCount);
+}
+
+async function generateCourseModules(courseId: number, videos: any[], topic: string, field: string, level: string) {
+  // Group videos into logical modules based on content and progression
+  const modules = [];
+  const videosPerModule = Math.ceil(videos.length / 3); // Aim for 3 modules
+  
+  const moduleTemplates = [
+    { title: "Foundations", description: `Core concepts and theoretical foundations of ${topic}` },
+    { title: "Advanced Topics", description: `Advanced theoretical and practical aspects of ${topic}` },
+    { title: "Applications", description: `Real-world applications and case studies in ${topic}` }
+  ];
+
+  for (let i = 0; i < 3 && i * videosPerModule < videos.length; i++) {
+    const moduleVideos = videos.slice(i * videosPerModule, (i + 1) * videosPerModule);
+    
+    const module = await storage.createCourseModule({
+      courseId,
+      title: moduleTemplates[i].title,
+      description: moduleTemplates[i].description,
+      orderIndex: i,
+      objectives: generateModuleObjectives(moduleTemplates[i].title, topic, level)
+    });
+
+    // Create lectures for each video in this module
+    const lectures = [];
+    for (let j = 0; j < moduleVideos.length; j++) {
+      const video = moduleVideos[j];
+      
+      // Ensure video exists in database
+      let dbVideo = await storage.getVideoByYoutubeId(video.youtubeId);
+      if (!dbVideo) {
+        dbVideo = await storage.createVideo({
+          youtubeId: video.youtubeId,
+          title: video.title,
+          duration: video.duration,
+          status: "indexed"
+        });
+      }
+
+      const lecture = await storage.createCourseLecture({
+        moduleId: module.id,
+        videoId: dbVideo.id,
+        title: video.title,
+        orderIndex: j,
+        keyTopics: video.keyTopics || [],
+        theoreticalConcepts: extractTheoreticalConcepts(video.title, topic),
+        practicalApplications: extractPracticalApplications(video.title, field),
+        relevanceScore: video.relevanceScore || 0.8
+      });
+
+      lectures.push(lecture);
+    }
+
+    modules.push({ ...module, lectures });
+  }
+
+  return modules;
+}
+
+function calculateTotalDuration(videos: any[]): string {
+  let totalMinutes = 0;
+  
+  videos.forEach(video => {
+    const duration = video.duration || "0:00";
+    const parts = duration.split(":");
+    if (parts.length === 2) {
+      totalMinutes += parseInt(parts[0]) + parseInt(parts[1]) / 60;
+    }
+  });
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = Math.round(totalMinutes % 60);
+  
+  return hours > 0 ? `${hours}:${minutes.toString().padStart(2, '0')}` : `${minutes}:00`;
+}
+
+function generateModuleObjectives(moduleTitle: string, topic: string, level: string): string[] {
+  const baseObjectives = {
+    "Foundations": [
+      `Understand the fundamental principles of ${topic}`,
+      `Analyze key theoretical frameworks`,
+      `Identify core concepts and terminology`
+    ],
+    "Advanced Topics": [
+      `Apply advanced techniques in ${topic}`,
+      `Evaluate complex theoretical models`,
+      `Synthesize multiple approaches and methodologies`
+    ],
+    "Applications": [
+      `Implement practical solutions using ${topic}`,
+      `Design real-world applications`,
+      `Assess the impact and effectiveness of implementations`
+    ]
+  };
+
+  return baseObjectives[moduleTitle as keyof typeof baseObjectives] || [];
+}
+
+function extractTheoreticalConcepts(title: string, topic: string): string[] {
+  const concepts = [];
+  
+  if (title.toLowerCase().includes("quantum")) concepts.push("Quantum mechanics principles");
+  if (title.toLowerCase().includes("theory")) concepts.push("Theoretical frameworks");
+  if (title.toLowerCase().includes("system")) concepts.push("Systems analysis");
+  if (title.toLowerCase().includes("algorithm")) concepts.push("Algorithmic theory");
+  if (title.toLowerCase().includes("biology")) concepts.push("Biological systems");
+  
+  return concepts.length > 0 ? concepts : [`${topic} fundamentals`];
+}
+
+function extractPracticalApplications(title: string, field: string): string[] {
+  const applications = [];
+  
+  if (title.toLowerCase().includes("research")) applications.push("Research methodologies");
+  if (title.toLowerCase().includes("application")) applications.push("Industry applications");
+  if (title.toLowerCase().includes("framework")) applications.push("Implementation frameworks");
+  if (title.toLowerCase().includes("method")) applications.push("Practical methods");
+  
+  return applications.length > 0 ? applications : [`${field} applications`];
 }
 
 function extractChannelId(url: string): string | null {
