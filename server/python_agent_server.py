@@ -102,6 +102,23 @@ async def get_system_metrics():
         print(f"Error getting system metrics: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to get system metrics: {str(e)}")
 
+@app.post("/search_academic_content")
+async def search_academic_content(request: Dict[str, Any]):
+    """Search for academic content"""
+    try:
+        topic = request.get("topic")
+        field = request.get("field") 
+        level = request.get("level", "graduate")
+        
+        if not topic or not field:
+            raise HTTPException(status_code=400, detail="Topic and field are required")
+        
+        result = await orchestrator.search_academic_content(topic, field, level)
+        return result
+    except Exception as e:
+        print(f"Error searching academic content: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     # Run the FastAPI server
     port = int(os.environ.get("PYTHON_AGENT_PORT", "8000"))
