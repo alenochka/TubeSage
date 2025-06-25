@@ -540,7 +540,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: "error",
           title: `Error processing ${youtubeId}`
         });
-        throw error;
+        // Don't throw error to prevent API 500, just log it
       }
       
       res.json({ message: "Video processing started", video });
