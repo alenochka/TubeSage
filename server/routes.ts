@@ -787,7 +787,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Mock channel video fetching (in production, use YouTube Data API)
-      const mockVideos = generateMockChannelVideos(channelId);
+      const mockVideos = generateMockChannelVideos(channelId, 50);
       
       res.json({
         channelId,
@@ -890,52 +890,47 @@ function extractChannelId(url: string): string | null {
 }
 
 function generateMockChannelVideos(channelId: string, maxResults: number = 50) {
-  // Only use real, existing YouTube videos to avoid transcript errors
-  // In production, this would use YouTube Data API to fetch actual channel videos
-  const realVideos = [
-    {
-      id: "m2SW35yaajE",
-      title: "Open Quantum Systems Theory of Ultra Weak UV Photon Emissions",
-      duration: "15:32",
-      publishedAt: "2024-03-15",
-      thumbnailUrl: "https://i.ytimg.com/vi/m2SW35yaajE/hqdefault.jpg",
-      url: "https://www.youtube.com/watch?v=m2SW35yaajE"
-    },
-    {
-      id: "mf6lkIipjF0", 
-      title: "Quantum Biology: From Photons to Physiology",
-      duration: "28:45",
-      publishedAt: "2024-02-20",
-      thumbnailUrl: "https://i.ytimg.com/vi/mf6lkIipjF0/hqdefault.jpg",
-      url: "https://www.youtube.com/watch?v=mf6lkIipjF0"
-    },
-    {
-      id: "9u7rIODg2YU",
-      title: "Quantum Biology Research Framework and Applications",
-      duration: "12:18",
-      publishedAt: "2024-01-10",
-      thumbnailUrl: "https://i.ytimg.com/vi/9u7rIODg2YU/hqdefault.jpg", 
-      url: "https://www.youtube.com/watch?v=9u7rIODg2YU"
-    },
-    {
-      id: "dQw4w9WgXcQ",
-      title: "Rick Astley - Never Gonna Give You Up (Official Video)",
-      duration: "3:33",
-      publishedAt: "2009-10-25",
-      thumbnailUrl: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
-      url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    },
-    {
-      id: "jNQXAC9IVRw",
-      title: "Me at the zoo",
-      duration: "0:19",
-      publishedAt: "2005-04-23",
-      thumbnailUrl: "https://i.ytimg.com/vi/jNQXAC9IVRw/hqdefault.jpg",
-      url: "https://www.youtube.com/watch?v=jNQXAC9IVRw"
-    }
+  // Expanded list of real YouTube video IDs for comprehensive channel testing
+  const videoIds = [
+    "jNQXAC9IVRw", "dQw4w9WgXcQ", "oHg5SJYRHA0", "fJ9rUzIMcZQ", 
+    "9bZkp7q19f0", "sTSA_sWGM44", "astISOttCQ0", "kJQP7kiw5Fk",
+    "L_jWHffIx5E", "hFZFjoX2cGg", "y6120QOlsfU", "d1YBv2mWll0",
+    "QH2-TGUlwu4", "M7lc1UVf-VE", "ZZ5LpwO-An4", "uelHwf8o7_U",
+    "kXYiU_JCYtU", "WPni755-Krg", "OYeC-BSGrt0", "3AtDnEC4zak",
+    "YVkUvmDQ3HY", "1G4isv_Fylg", "pRpeEdMmmQ0", "BaW_jenozKc",
+    "YQHsXMglC9A", "adyGwKGiy9A", "hLQl3WQQoQ0", "djV11Xbc914",
+    "2vjPBrBU-TM", "Hm3JodBR-vs", "rAHQY4KoEms", "CevxZvSJLk8",
+    "HIcSWuKMwOw", "tgbNymZ7vqY", "kffacxfA7G4", "4fndeDfaWCg",
+    "Zi_XLOBDo_Y", "bx1Bh_taiu4", "GtUVQei3nX4", "8UVNT4wvIGY",
+    "Sagg08DrO5U", "hTWKbfoikeg", "nfWlot6h_JM", "ThMVzKzI0vY",
+    "W2TE0DjdNqI", "LsoLEjrDogU", "1w7OgIMMRc4", "gGdGFtwCNBE",
+    "MtN1YnoL46Q", "sOnqjkJTMaA", "EgBJmlPo8Xw", "X_8Nh5XfRw0"
   ];
 
-  return realVideos;
+  const topics = [
+    "Machine Learning Fundamentals", "Deep Neural Networks", "Computer Vision Applications",
+    "Natural Language Processing", "Quantum Computing Basics", "Data Science Methods",
+    "Algorithm Design", "Software Engineering", "Web Development", "Mobile App Development",
+    "Database Systems", "Cloud Computing", "Cybersecurity", "Artificial Intelligence",
+    "Blockchain Technology", "Internet of Things", "DevOps Practices", "System Design",
+    "Programming Languages", "Computer Graphics", "Human-Computer Interaction", "Robotics",
+    "Operating Systems", "Network Security", "Distributed Systems", "Big Data Analytics",
+    "Software Testing", "Project Management", "User Experience Design", "Game Development",
+    "Augmented Reality", "Virtual Reality", "Edge Computing", "Microservices",
+    "API Development", "Frontend Frameworks", "Backend Architecture", "Performance Optimization",
+    "Code Quality", "Technical Leadership", "Open Source", "Research Methods",
+    "Innovation Strategies", "Technology Trends", "Digital Transformation", "Startup Culture",
+    "Product Development", "Agile Methodology", "Technical Writing", "Community Building"
+  ];
+
+  return videoIds.slice(0, Math.min(maxResults, videoIds.length)).map((id, index) => ({
+    id,
+    title: `${topics[index % topics.length]} - Lecture ${index + 1}`,
+    duration: `${Math.floor(Math.random() * 45) + 5}:${Math.floor(Math.random() * 60).toString().padStart(2, '0')}`,
+    publishedAt: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    thumbnailUrl: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+    url: `https://www.youtube.com/watch?v=${id}`
+  }));
 }
 
 function extractVideoId(url: string): string | null {
