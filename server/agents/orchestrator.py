@@ -17,6 +17,7 @@ class AgentOrchestrator:
         self.text_chunker = TextChunker()
         self.vector_embedder = VectorEmbedder()
         self.query_processor = QueryProcessor()
+        self.academic_scraper = AcademicScraper()
         
         # Set all agents to active status
         self.transcript_fetcher.status = "active"
