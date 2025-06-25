@@ -1014,29 +1014,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   return httpServer;
 }
 
-// Generate academic search keywords using AI
-async function generateAcademicSearchKeywords(topic: string, field: string, level: string): Promise<string[]> {
+// Generate expanded search keywords using AI for better YouTube results
+async function generateExpandedSearchKeywords(topic: string, field: string, level: string): Promise<string[]> {
   try {
     const OpenAI = require('openai');
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    const prompt = `Generate 5 specific academic search keywords for finding university lectures and courses on YouTube.
+    const prompt = `Generate diverse search keywords to find high-quality educational YouTube videos on this topic.
 
 Topic: ${topic}
 Field: ${field}
 Level: ${level}
 
-Requirements:
-- Include university names (MIT, Stanford, Harvard, Berkeley, CMU, etc.)
-- Include course codes when relevant (CS229, 6.034, etc.)
-- Focus on formal educational content
-- Include professor names when known
-- Target ${level}-level content
+Create 8 different search queries that would find excellent educational content:
+- Include university lectures (MIT, Stanford, Harvard, etc.)
+- Include popular educational channels (3Blue1Brown, Khan Academy, etc.)
+- Include technical tutorials and explanations
+- Include course names and professor names when relevant
+- Include both basic and advanced variations
+- Include practical applications and examples
 
-Format: Return as a JSON array of strings, each being a complete search query.
+Format: Return as a JSON object with "keywords" array.
 
-Example for "machine learning" in "computer science":
-["MIT 6.034 artificial intelligence", "Stanford CS229 machine learning Andrew Ng", "Harvard CS109 data science", "Berkeley CS188 AI", "CMU machine learning course"]`;
+Example for "neural networks" in "computer science":
+{
+  "keywords": [
+    "neural networks explained",
+    "MIT neural networks course",
+    "3Blue1Brown neural networks",
+    "deep learning tutorial",
+    "Andrew Ng neural networks",
+    "neural network programming",
+    "CNN tutorial explained",
+    "backpropagation algorithm"
+  ]
+}`;
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -1045,16 +1057,19 @@ Example for "machine learning" in "computer science":
     });
 
     const result = JSON.parse(response.choices[0].message.content);
-    return result.keywords || result.search_queries || [];
+    return result.keywords || [];
   } catch (error) {
-    console.error('Error generating academic keywords:', error);
+    console.error('Error generating expanded keywords:', error);
     // Fallback keywords
     return [
-      `${topic} ${field} university lecture`,
-      `MIT ${topic} course`,
-      `Stanford ${topic} ${field}`,
-      `Harvard ${topic} lecture`,
-      `${topic} ${field} tutorial academic`
+      `${topic} explained`,
+      `${topic} tutorial`,
+      `${topic} ${field} course`,
+      `${topic} lecture`,
+      `${topic} ${field} examples`,
+      `how to ${topic}`,
+      `${topic} beginner guide`,
+      `${topic} advanced concepts`
     ];
   }
 }
@@ -1145,6 +1160,87 @@ function extractUniversity(channel: string, title: string): string {
   if (text.includes('university')) return 'University';
   
   return 'Educational';
+}
+
+// Enhanced search function using AI-generated keywords
+async function searchTopicVideosWithKeywords(topic: string, field: string, level: string, videoCount: number, keywords: string[]) {
+  console.log(`Searching with ${keywords.length} AI-generated keywords...`);
+  
+  try {
+    const { searchYouTubeVideos } = await import('./youtube-api');
+    
+    const allResults: any[] = [];
+    
+    // Search with each keyword and collect results
+    for (let i = 0; i < Math.min(keywords.length, 5); i++) {
+      const keyword = keywords[i];
+      try {
+        console.log(`Searching YouTube with: "${keyword}"`);
+        const results = await searchYouTubeVideos(keyword, topic, field, level, 4);
+        allResults.push(...results);
+      } catch (error) {
+        console.error(`Error searching with keyword "${keyword}":`, error);
+      }
+    }
+    
+    // Remove duplicates and rank by relevance
+    const uniqueResults = removeDuplicateVideos(allResults);
+    const rankedResults = rankVideosByRelevance(uniqueResults, topic, field);
+    
+    console.log(`Found ${rankedResults.length} unique videos from keyword expansion`);
+    return rankedResults.slice(0, videoCount);
+    
+  } catch (error) {
+    console.error('YouTube API error, using fallback search:', error);
+    return await searchTopicVideos(topic, field, level, videoCount, []);
+  }
+}
+
+// Remove duplicate videos based on YouTube ID
+function removeDuplicateVideos(videos: any[]): any[] {
+  const seen = new Set();
+  return videos.filter(video => {
+    if (seen.has(video.youtubeId)) {
+      return false;
+    }
+    seen.add(video.youtubeId);
+    return true;
+  });
+}
+
+// Rank videos by relevance to topic and field
+function rankVideosByRelevance(videos: any[], topic: string, field: string): any[] {
+  return videos.map(video => {
+    let relevanceScore = 0;
+    
+    const title = video.title.toLowerCase();
+    const description = (video.description || '').toLowerCase();
+    const channel = video.channelTitle.toLowerCase();
+    
+    // Topic relevance
+    if (title.includes(topic.toLowerCase())) relevanceScore += 0.3;
+    if (description.includes(topic.toLowerCase())) relevanceScore += 0.1;
+    
+    // Field relevance
+    if (title.includes(field.toLowerCase())) relevanceScore += 0.2;
+    if (description.includes(field.toLowerCase())) relevanceScore += 0.1;
+    
+    // Educational channel bonus
+    const educationalChannels = ['mit', 'stanford', 'harvard', '3blue1brown', 'khan academy', 'coursera', 'edx'];
+    if (educationalChannels.some(edu => channel.includes(edu))) {
+      relevanceScore += 0.2;
+    }
+    
+    // Lecture/course bonus
+    if (title.includes('lecture') || title.includes('course') || title.includes('tutorial')) {
+      relevanceScore += 0.1;
+    }
+    
+    return {
+      ...video,
+      relevanceScore: Math.min(relevanceScore, 1.0)
+    };
+  }).sort((a, b) => b.relevanceScore - a.relevanceScore);
 }
 
 async function searchTopicVideos(topic: string, field: string, level: string, videoCount: number, focusAreas: string[] = []) {

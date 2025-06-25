@@ -305,25 +305,19 @@ export default function CourseBuilderSimple({ onCourseCreated }: CourseBuilderPr
                   {isSearching ? (
                     <>
                       <Search className="w-4 h-4 mr-2 animate-spin" />
-                      Searching YouTube...
+                      AI Searching YouTube...
                     </>
                   ) : (
                     <>
                       <Search className="w-4 h-4 mr-2" />
-                      Search for Videos
+                      AI-Enhanced Search
                     </>
                   )}
                 </Button>
                 
-                <Button 
-                  onClick={searchAcademicContent}
-                  variant="outline"
-                  disabled={isSearching || !topic || !field}
-                  className="w-full"
-                >
-                  <GraduationCap className="w-4 h-4 mr-2" />
-                  Search Academic Sources
-                </Button>
+                <div className="text-xs text-muted-foreground text-center">
+                  AI will expand your search terms to find the best educational content
+                </div>
               </div>
             </>
           ) : (
