@@ -347,6 +347,88 @@ except Exception as e:
   }, 1000);
 }
 
+async function processReflection(question: string, response: string, sourceContexts: any[]) {
+  try {
+    await storage.createAgentLog({
+      agentName: "Reflection Agent",
+      message: `Evaluating response quality and generating suggestions for query: "${question.substring(0, 50)}${question.length > 50 ? '...' : ''}"`,
+      level: "info"
+    });
+
+    if (openai) {
+      const evaluationPrompt = `You are a ReAct (Reasoning + Acting) reflection agent evaluating AI response quality. Analyze this query-response pair and provide actionable suggestions.
+
+Original Query: "${question}"
+
+AI Response: "${response}"
+
+Source Contexts Available: ${sourceContexts.length} video segments
+
+Evaluate the response and provide JSON output with these fields:
+{
+  "qualityScore": (1-100),
+  "strengths": ["strength1", "strength2"],
+  "weaknesses": ["weakness1", "weakness2"],
+  "refinedQueries": ["more specific query 1", "more specific query 2"],
+  "relatedQueries": ["related topic 1", "related topic 2"],
+  "searchKeywords": ["youtube search term 1", "youtube search term 2"],
+  "nextSteps": ["actionable step 1", "actionable step 2"]
+}`;
+
+      const reflection = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [{
+          role: "user",
+          content: evaluationPrompt
+        }],
+        max_tokens: 800,
+        temperature: 0.3,
+        response_format: { type: "json_object" }
+      });
+
+      const reflectionData = JSON.parse(reflection.choices[0].message.content || '{}');
+      
+      await storage.createAgentLog({
+        agentName: "Reflection Agent",
+        message: `Generated reflection with quality score ${reflectionData.qualityScore}/100 and ${reflectionData.nextSteps?.length || 0} action items`,
+        level: "info"
+      });
+
+      return {
+        qualityScore: reflectionData.qualityScore || 75,
+        strengths: reflectionData.strengths || ["Response provided"],
+        weaknesses: reflectionData.weaknesses || ["Could be more specific"],
+        refinedQueries: reflectionData.refinedQueries || [],
+        relatedQueries: reflectionData.relatedQueries || [],
+        searchKeywords: reflectionData.searchKeywords || [],
+        nextSteps: reflectionData.nextSteps || ["Ask more specific questions"]
+      };
+    } else {
+      // Fallback reflection without AI
+      return {
+        qualityScore: 70,
+        strengths: ["Query processed successfully"],
+        weaknesses: ["Limited without OpenAI API access"],
+        refinedQueries: [`What specific aspects of "${question}" would you like to explore?`],
+        relatedQueries: [`Related topics to "${question}"`],
+        searchKeywords: [question.split(' ').slice(0, 2).join(' ')],
+        nextSteps: ["Try more specific questions", "Add more YouTube videos to improve context"]
+      };
+    }
+  } catch (error) {
+    console.error("Reflection processing error:", error);
+    return {
+      qualityScore: 60,
+      strengths: ["Response generated"],
+      weaknesses: ["Reflection analysis failed"],
+      refinedQueries: [],
+      relatedQueries: [],
+      searchKeywords: [],
+      nextSteps: ["Try rephrasing your question"]
+    };
+  }
+}
+
 async function processQueryWithAI(question: string) {
   try {
     // Log query processing start
@@ -658,6 +740,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Process query with integrated AI services
       const { response, sourceContexts, confidence } = await processQueryWithAI(question);
       
+      // Trigger reflection agent after AI response
+      const reflection = await processReflection(question, response, sourceContexts);
+      
       const responseTime = Date.now() - startTime;
       
       const query = await storage.createQuery({
@@ -668,7 +753,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         responseTime
       });
       
-      res.json(query);
+      res.json({
+        ...query,
+        reflection
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Invalid request data", details: error.errors });
