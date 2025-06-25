@@ -397,10 +397,14 @@ async function processQueryWithAI(question: string) {
           array.findIndex(c => c.id === chunk.id) === index
         );
         
-        const chunksToUse = uniqueChunks.slice(0, 4); // Use up to 4 chunks for better coverage
+        const chunksToUse = uniqueChunks.slice(0, 3); // Limit to 3 chunks to control context size
         
         for (const chunk of chunksToUse) {
-          contextText += `\n\nFrom video "${video.title}" at ${chunk.startTime}: ${chunk.content}`;
+          // Limit chunk content to prevent token overflow
+          const limitedContent = chunk.content.length > 800 ? 
+            chunk.content.substring(0, 800) + "..." : chunk.content;
+          
+          contextText += `\n\nFrom video "${video.title}" at ${chunk.startTime}: ${limitedContent}`;
           
           const timeInSeconds = chunk.startTime ? 
             chunk.startTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0) : 0;
@@ -409,7 +413,7 @@ async function processQueryWithAI(question: string) {
             videoTitle: video.title || `Video ${video.youtubeId}`,
             videoId: video.youtubeId,
             timestamp: chunk.startTime || "0:00",
-            excerpt: chunk.content.substring(0, 150) + "...",
+            excerpt: limitedContent.substring(0, 150) + "...",
             confidence: relevantChunks.includes(chunk) ? 90 + Math.floor(Math.random() * 8) : 75 + Math.floor(Math.random() * 10),
             relevance: relevantChunks.includes(chunk) ? "High" : "Medium",
             youtubeUrl: `https://www.youtube.com/watch?v=${video.youtubeId}&t=${timeInSeconds}s`
@@ -426,6 +430,12 @@ async function processQueryWithAI(question: string) {
       // Use real OpenAI API with actual transcript context
       console.log(`Context length: ${contextText.length} characters`);
       console.log(`Context preview: ${contextText.substring(0, 200)}...`);
+      
+      // Additional safety check for context length
+      if (contextText.length > 40000) { // ~10k tokens rough estimate
+        contextText = contextText.substring(0, 40000) + "\n\n[Context truncated to fit token limits]";
+        console.log("Context truncated to prevent token overflow");
+      }
       
       const systemPrompt = contextText ? 
         `You are analyzing YouTube video transcripts. You must answer questions based ONLY on the transcript content provided below. If the transcript mentions the person or topic, provide a detailed answer with direct quotes. If not mentioned, clearly state it's not in the transcripts.
