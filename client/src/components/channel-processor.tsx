@@ -252,19 +252,63 @@ export default function ChannelProcessor() {
           </div>
 
           {channelVideos.length > 0 && (
-            <div className="flex items-center justify-between p-4 bg-secondary/10 rounded-lg">
-              <div>
-                <div className="font-semibold">Channel Videos Found</div>
-                <div className="text-sm text-muted-foreground">
-                  {channelVideos.length} videos ready for processing
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-secondary/10 rounded-lg">
+                <div>
+                  <div className="font-semibold">Channel Videos Found</div>
+                  <div className="text-sm text-muted-foreground">
+                    {channelVideos.length} videos ready for processing
+                  </div>
+                </div>
+                <Button
+                  onClick={handleStartProcessing}
+                  disabled={processingStatus.isProcessing}
+                >
+                  Start Processing
+                </Button>
+              </div>
+
+              {/* Video Grid Display */}
+              <div className="space-y-2">
+                <h3 className="font-semibold">Available Videos</h3>
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 max-h-96 overflow-y-auto">
+                  {channelVideos.map((video, index) => (
+                    <div key={video.id} className="p-3 border rounded-lg hover:bg-gray-50">
+                      <div className="space-y-2">
+                        <div className="font-medium text-sm truncate" title={video.title}>
+                          {video.title}
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>{video.duration}</span>
+                          <span>{video.publishedAt}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <Badge variant={
+                            processingStatus.processedVideos.includes(video.id) ? "default" :
+                            processingStatus.failedVideos.some(f => f.id === video.id) ? "destructive" :
+                            processingStatus.currentVideo?.id === video.id ? "secondary" : "outline"
+                          }>
+                            {processingStatus.processedVideos.includes(video.id) ? "Processed" :
+                             processingStatus.failedVideos.some(f => f.id === video.id) ? "Failed" :
+                             processingStatus.currentVideo?.id === video.id ? "Processing" : "Pending"}
+                          </Badge>
+                          <a 
+                            href={video.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-500 hover:underline"
+                          >
+                            View
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="text-center text-sm text-muted-foreground">
+                  Total videos: {channelVideos.length}
                 </div>
               </div>
-              <Button
-                onClick={handleStartProcessing}
-                disabled={processingStatus.isProcessing}
-              >
-                Start Processing
-              </Button>
             </div>
           )}
         </div>
