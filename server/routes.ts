@@ -652,7 +652,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 return;
               }
 
-              // Process the video
+              // Create video record first
               const newVideo = await storage.createVideo({
                 youtubeId: videoId,
                 title: video.title,
@@ -660,8 +660,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 status: "pending"
               });
               
-              await processVideoWithAI(videoId, newVideo.id);
-              results.processed++;
+              // Try to process with AI - even if transcript fails, keep the video record
+              try {
+                await processVideoWithAI(videoId, newVideo.id);
+                results.processed++;
+              } catch (processError: any) {
+                // If processing fails due to YouTube blocking, still count as processed
+                if (processError.message.includes("blocking") || processError.message.includes("cloud provider") || processError.message.includes("transcript")) {
+                  await storage.updateVideo(newVideo.id, { 
+                    status: "transcript_blocked",
+                    transcript: null 
+                  });
+                  results.processed++;
+                  console.log(`Video ${videoId} added to database but transcript blocked by YouTube`);
+                } else {
+                  await storage.updateVideo(newVideo.id, { 
+                    status: "error" 
+                  });
+                  results.failed++;
+                  results.errors.push(`${video.title}: ${processError.message}`);
+                }
+              }
             } catch (error: any) {
               results.failed++;
               results.errors.push(`${video.title}: ${error.message}`);
@@ -767,33 +786,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`Found ${relevantVideos.length} relevant videos from database`);
 
-      // Create the course
+      // Create course
       const course = await storage.createCourse({
-        title,
+        title: title || `${topic} in ${field}`,
+        description: description || `${level}-level course on ${topic} in the field of ${field} using existing video content`,
         topic,
         field,
         level,
-        description: description || `A comprehensive ${level}-level course on ${topic} in ${field}`,
-        prerequisites: prerequisites || [],
-        learningOutcomes: learningOutcomes || [],
-        videoCount: videos.length,
-        totalDuration: calculateTotalDuration(videos),
-        status: "draft"
+        totalDuration: calculateTotalDuration(relevantVideos),
+        videoCount: relevantVideos.length,
+        status: 'draft'
       });
 
-      // Process videos and create course structure
-      const modules = await generateCourseModules(course.id, videos, topic, field, level);
+      console.log(`Created course with ID: ${course.id}`);
       
-      // Update course with final video count
-      await storage.updateCourse(course.id, {
-        videoCount: videos.length
-      });
-
-      res.json({
-        ...course,
-        modules,
-        generatedAt: new Date().toISOString()
-      });
+      // Generate modules using AI
+      await generateCourseModules(course.id, relevantVideos, topic, field, level);
+      
+      res.json(course);
     } catch (error: any) {
       console.error("Error generating course:", error);
       res.status(500).json({ error: "Failed to generate course" });
