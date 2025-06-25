@@ -532,8 +532,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Process video with integrated AI services
       try {
-        // Simulate real YouTube transcript processing
-        await processVideoWithAI(youtubeId, video.id);
+        // Process video using YouTube Data API v3
+        await processVideoWithYouTubeAPI(youtubeId, video.id);
       } catch (error) {
         console.error("Failed to process video:", error);
         await storage.updateVideo(video.id, { 
