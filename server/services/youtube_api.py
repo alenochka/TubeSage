@@ -315,3 +315,86 @@ class YouTubeAPI:
                 continue
         
         return None
+
+    async def get_playlist_videos(self, playlist_url: str, max_results: int = 50) -> List[Dict[str, Any]]:
+        """Get videos from a YouTube playlist"""
+        try:
+            playlist_id = self._extract_playlist_id(playlist_url)
+            if not playlist_id:
+                return []
+
+            if not self.api_key:
+                print("YouTube API key not available, cannot fetch playlist videos")
+                return []
+
+            from googleapiclient.discovery import build
+            youtube = build('youtube', 'v3', developerKey=self.api_key)
+            
+            # Get playlist items
+            playlist_items = []
+            next_page_token = None
+            
+            while len(playlist_items) < max_results:
+                request = youtube.playlistItems().list(
+                    part='snippet',
+                    playlistId=playlist_id,
+                    maxResults=min(50, max_results - len(playlist_items)),
+                    pageToken=next_page_token
+                )
+                
+                response = request.execute()
+                playlist_items.extend(response['items'])
+                
+                next_page_token = response.get('nextPageToken')
+                if not next_page_token:
+                    break
+            
+            # Get detailed video information
+            video_ids = [item['snippet']['resourceId']['videoId'] for item in playlist_items]
+            if not video_ids:
+                return []
+                
+            videos_response = youtube.videos().list(
+                part='snippet,contentDetails,statistics',
+                id=','.join(video_ids[:50])  # Batch up to 50 videos
+            ).execute()
+            
+            videos = []
+            for video in videos_response['items']:
+                video_data = {
+                    'videoId': video['id'],
+                    'title': video['snippet']['title'],
+                    'description': video['snippet']['description'][:500] + '...' if len(video['snippet']['description']) > 500 else video['snippet']['description'],
+                    'publishedAt': video['snippet']['publishedAt'],
+                    'channelTitle': video['snippet']['channelTitle'],
+                    'duration': self._parse_duration(video['contentDetails']['duration']),
+                    'viewCount': int(video['statistics'].get('viewCount', 0)),
+                    'thumbnail': video['snippet']['thumbnails']['medium']['url']
+                }
+                videos.append(video_data)
+            
+            return videos[:max_results]
+            
+        except Exception as e:
+            print(f"Error fetching playlist videos: {e}")
+            return []
+
+    def _extract_playlist_id(self, url: str) -> Optional[str]:
+        """Extract playlist ID from various YouTube playlist URL formats"""
+        import re
+        
+        # Various playlist URL patterns
+        patterns = [
+            r'[?&]list=([a-zA-Z0-9_-]+)',  # Standard playlist parameter
+            r'/playlist\?list=([a-zA-Z0-9_-]+)',  # Direct playlist URL
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, url)
+            if match:
+                playlist_id = match.group(1)
+                # Validate playlist ID format
+                if len(playlist_id) >= 10:  # Minimum reasonable length
+                    return playlist_id
+        
+        return None
