@@ -14,8 +14,7 @@ interface CourseBuilderProps {
 
 export default function CourseBuilderSimple({ onCourseCreated }: CourseBuilderProps) {
   const [topic, setTopic] = useState("");
-  const [field, setField] = useState("");
-  const [level, setLevel] = useState<"undergraduate" | "graduate" | "doctoral">("graduate");
+
   const [videoCount, setVideoCount] = useState(6);
   
   const [isSearching, setIsSearching] = useState(false);
@@ -28,10 +27,10 @@ export default function CourseBuilderSimple({ onCourseCreated }: CourseBuilderPr
   const { toast } = useToast();
 
   const handleSearch = async () => {
-    if (!topic || !field) {
+    if (!topic) {
       toast({
         title: "Missing Information",
-        description: "Please enter both topic and field",
+        description: "Please enter a course topic",
         variant: "destructive"
       });
       return;
@@ -47,8 +46,6 @@ export default function CourseBuilderSimple({ onCourseCreated }: CourseBuilderPr
         },
         body: JSON.stringify({
           topic,
-          field,
-          level,
           videoCount,
           focusAreas: []
         })
@@ -107,11 +104,11 @@ export default function CourseBuilderSimple({ onCourseCreated }: CourseBuilderPr
 
     try {
       const courseData = {
-        title: `${topic} in ${field}`,
+        title: `${topic} Course`,
         topic,
-        field,
-        level,
-        description: `A comprehensive ${level}-level course on ${topic} in ${field}`,
+        field: topic,
+        level: "intermediate",
+        description: `A comprehensive course on ${topic}`,
         prerequisites: [],
         learningOutcomes: [],
         videos: searchResults
@@ -179,7 +176,7 @@ export default function CourseBuilderSimple({ onCourseCreated }: CourseBuilderPr
       const response = await fetch('/api/academic/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, field, level })
+        body: JSON.stringify({ topic })
       });
 
       if (!response.ok) {
@@ -198,8 +195,8 @@ export default function CourseBuilderSimple({ onCourseCreated }: CourseBuilderPr
           relevanceScore: video.final_score,
           theoreticalDepth: video.academic_score,
           practicalValue: video.academic_score,
-          keyTopics: [topic, field],
-          field: field.toLowerCase(),
+          keyTopics: [topic],
+          field: topic.toLowerCase(),
           isAcademic: true,
           university: video.university
         }));
@@ -238,34 +235,22 @@ export default function CourseBuilderSimple({ onCourseCreated }: CourseBuilderPr
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <GraduationCap className="w-5 h-5 text-primary" />
-            <span>Graduate Course Builder</span>
+            <span>Course Builder</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {!showResults ? (
             // Search Form
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="topic">Course Topic</Label>
-                  <Input
-                    id="topic"
-                    placeholder="e.g., Machine Learning, Quantum Computing"
-                    value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
-                    disabled={isSearching}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="field">Academic Field</Label>
-                  <Input
-                    id="field"
-                    placeholder="e.g., Computer Science, Physics"
-                    value={field}
-                    onChange={(e) => setField(e.target.value)}
-                    disabled={isSearching}
-                  />
-                </div>
+              <div>
+                <Label htmlFor="topic">Course Topic</Label>
+                <Input
+                  id="topic"
+                  placeholder="e.g., Machine Learning, Quantum Computing, Web Development"
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  disabled={isSearching}
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -399,7 +384,7 @@ export default function CourseBuilderSimple({ onCourseCreated }: CourseBuilderPr
                 ) : (
                   <>
                     <BookOpen className="w-4 h-4 mr-2" />
-                    Generate Graduate Course
+                    Generate Course
                   </>
                 )}
               </Button>
