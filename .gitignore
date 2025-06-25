@@ -18,9 +18,9 @@ build/
 *.local
 
 # Environment variables
-.env
-.env.*
+.env*
 !.env.example
+*.env
 #.env#
 .env~
 
