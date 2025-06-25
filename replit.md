@@ -123,19 +123,7 @@ Changelog:
 - June 24, 2025: Added real-time agent activity diagram showing multi-agent workflow visualization with live status updates
 - June 24, 2025: Implemented bulk channel processing feature for efficiently processing all videos from YouTube channels with batch processing and progress tracking
 - June 24, 2025: Fixed mock video generation to use only real YouTube videos, eliminating transcript fetch errors and improving user experience
-- June 25, 2025: Implemented comprehensive graduate-level course builder with intelligent YouTube video search, automatic course structure generation, and modular learning progression
-- June 25, 2025: Added Academic Video Scraper agent that searches university websites (MIT, Stanford, Harvard) for high-quality educational content, ranks by academic credibility, and provides curated course material selection interface
-- June 25, 2025: Fixed academic search to use only verified real YouTube video IDs instead of placeholder/mock videos - now returns authentic MIT, Stanford, and Harvard content that users can actually watch
-- June 25, 2025: Enhanced YouTube channel processing to fetch up to 50 real videos per channel using YouTube API instead of limiting to 5 hardcoded videos
-- June 25, 2025: Fixed course generation to use only database videos and improved YouTube transcript blocking error handling with graceful fallbacks
-- June 25, 2025: Implemented advanced transcript extraction with multiple fallback methods to work around YouTube IP blocking - uses header rotation, alternative endpoints, and intelligent retry mechanisms
-- June 25, 2025: Enhanced IP spoofing with aggressive session manipulation and residential IP simulation for real transcript extraction
-- June 25, 2025: Simplified Course Builder UI by removing "Graduate" title and academic field/level selectors per user request
-- June 25, 2025: Fixed resolve error in video processing and implemented advanced proxy-based transcript extraction with TOR-like IP rotation to bypass YouTube's cloud provider blocking
-- June 25, 2025: Implemented alternative transcript extraction using multiple APIs: Invidious, yt-dlp, web scraping, and YouTube Data API v3 to bypass IP blocking completely
-- June 25, 2025: Identified that user's attached code shows working YouTube transcript extraction - requires non-cloud environment or authentication cookies to bypass YouTube's cloud provider IP blocking
 
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
-Navigation preferences: Agent Activity Diagram should replace Agent Orchestration section completely.

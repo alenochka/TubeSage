@@ -1,13 +1,10 @@
 import { 
-  videos, chunks, queries, agents, agentLogs, courses, courseModules, courseLectures,
+  videos, chunks, queries, agents, agentLogs,
   type Video, type InsertVideo, 
   type Chunk, type InsertChunk,
   type Query, type InsertQuery,
   type Agent, type InsertAgent,
-  type AgentLog, type InsertAgentLog,
-  type Course, type InsertCourse,
-  type CourseModule, type InsertCourseModule,
-  type CourseLecture, type InsertCourseLecture
+  type AgentLog, type InsertAgentLog
 } from "@shared/schema";
 import { eq, desc, count } from "drizzle-orm";
 import { db } from "./db";
@@ -52,23 +49,6 @@ export interface IStorage {
     successRate: number;
     memoryUsage: string;
   }>;
-
-  // Course operations
-  getCourse(id: number): Promise<Course | undefined>;
-  getAllCourses(): Promise<Course[]>;
-  createCourse(course: InsertCourse): Promise<Course>;
-  updateCourse(id: number, updates: Partial<InsertCourse>): Promise<Course>;
-  deleteCourse(id: number): Promise<void>;
-
-  // Course module operations
-  getCourseModules(courseId: number): Promise<CourseModule[]>;
-  createCourseModule(module: InsertCourseModule): Promise<CourseModule>;
-  updateCourseModule(id: number, updates: Partial<InsertCourseModule>): Promise<CourseModule>;
-
-  // Course lecture operations
-  getCourseLectures(moduleId: number): Promise<CourseLecture[]>;
-  createCourseLecture(lecture: InsertCourseLecture): Promise<CourseLecture>;
-  updateCourseLecture(id: number, updates: Partial<InsertCourseLecture>): Promise<CourseLecture>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -278,103 +258,6 @@ export class DatabaseStorage implements IStorage {
       successRate: Math.round(successRate),
       memoryUsage: "PostgreSQL"
     };
-  }
-
-  // Course operations
-  async getCourse(id: number): Promise<Course | undefined> {
-    const [course] = await db.select().from(courses).where(eq(courses.id, id));
-    return course || undefined;
-  }
-
-  async getAllCourses(): Promise<Course[]> {
-    return await db.select().from(courses).orderBy(desc(courses.createdAt));
-  }
-
-  async createCourse(insertCourse: InsertCourse): Promise<Course> {
-    const [course] = await db
-      .insert(courses)
-      .values(insertCourse)
-      .returning();
-    return course;
-  }
-
-  async updateCourse(id: number, updates: Partial<InsertCourse>): Promise<Course> {
-    const [course] = await db
-      .update(courses)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(courses.id, id))
-      .returning();
-    return course;
-  }
-
-  async deleteCourse(id: number): Promise<void> {
-    await db.delete(courses).where(eq(courses.id, id));
-  }
-
-  // Course module operations
-  async getCourseModules(courseId: number): Promise<CourseModule[]> {
-    return await db
-      .select()
-      .from(courseModules)
-      .where(eq(courseModules.courseId, courseId))
-      .orderBy(courseModules.orderIndex);
-  }
-
-  async createCourseModule(insertModule: InsertCourseModule): Promise<CourseModule> {
-    const [module] = await db
-      .insert(courseModules)
-      .values(insertModule)
-      .returning();
-    return module;
-  }
-
-  async updateCourseModule(id: number, updates: Partial<InsertCourseModule>): Promise<CourseModule> {
-    const [module] = await db
-      .update(courseModules)
-      .set(updates)
-      .where(eq(courseModules.id, id))
-      .returning();
-    return module;
-  }
-
-  // Course lecture operations
-  async getCourseLectures(moduleId: number): Promise<CourseLecture[]> {
-    // Join with videos table to get YouTube IDs  
-    return await db
-      .select({
-        id: courseLectures.id,
-        moduleId: courseLectures.moduleId,
-        videoId: courseLectures.videoId,
-        title: courseLectures.title,
-        orderIndex: courseLectures.orderIndex,
-        keyTopics: courseLectures.keyTopics,
-        theoreticalConcepts: courseLectures.theoreticalConcepts,
-        practicalApplications: courseLectures.practicalApplications,
-        relevanceScore: courseLectures.relevanceScore,
-        createdAt: courseLectures.createdAt,
-        youtubeId: videos.youtubeId // Get the actual YouTube ID
-      })
-      .from(courseLectures)
-      .leftJoin(videos, eq(courseLectures.videoId, videos.id))
-      .where(eq(courseLectures.moduleId, moduleId))
-      .orderBy(courseLectures.orderIndex);
-  }
-
-  async createCourseLecture(insertLecture: InsertCourseLecture): Promise<CourseLecture> {
-    const [lecture] = await db
-      .insert(courseLectures)
-      .values(insertLecture)
-      .returning();
-    return lecture;
-  }
-
-  async updateCourseLecture(id: number, updates: Partial<InsertCourseLecture>): Promise<CourseLecture> {
-    const [lecture] = await db
-      .update(courseLectures)
-      .set(updates)
-      .where(eq(courseLectures.id, id))
-      .returning();
-    return lecture;
   }
 }
 

@@ -76,7 +76,7 @@ export default function AgentPanel({ onActiveCountChange }: AgentPanelProps) {
         {/* Header */}
         <CardTitle className="flex items-center space-x-2">
           <UserCog className="w-5 h-5 text-primary" />
-          <span>Agent Logs</span>
+          <span>Agent Orchestration</span>
         </CardTitle>
 
         {/* Agents Status */}

@@ -24,7 +24,56 @@ async function processVideoWithAI(youtubeId: string, videoId: number) {
       // Extract real YouTube transcript using Node.js subprocess
       const { spawn } = await import('child_process');
       
-      const python = spawn('python3', ['./server/youtube-transcript-direct.py', youtubeId]);
+      const python = spawn('python', ['-c', `
+import sys
+from youtube_transcript_api import YouTubeTranscriptApi
+import json
+
+youtubeId = '${youtubeId}'
+try:
+    transcript = YouTubeTranscriptApi.get_transcript(youtubeId)
+    duration = max([item['start'] + item['duration'] for item in transcript])
+    
+    video_title = f"YouTube Video {youtubeId}"
+    
+    chunks = []
+    current_chunk = ""
+    chunk_start = 0
+    chunk_index = 0
+    
+    for item in transcript:
+        current_chunk += item['text'] + " "
+        if len(current_chunk) > 500:
+            chunks.append({
+                'content': current_chunk.strip(),
+                'startTime': f"{int(chunk_start//60)}:{int(chunk_start%60):02d}",
+                'endTime': f"{int(item['start']//60)}:{int(item['start']%60):02d}",
+                'chunkIndex': chunk_index
+            })
+            current_chunk = ""
+            chunk_start = item['start']
+            chunk_index += 1
+    
+    if current_chunk:
+        chunks.append({
+            'content': current_chunk.strip(),
+            'startTime': f"{int(chunk_start//60)}:{int(chunk_start%60):02d}",
+            'endTime': f"{int(duration//60)}:{int(duration%60):02d}",
+            'chunkIndex': chunk_index
+        })
+    
+    result = {
+        'transcript': [item['text'] for item in transcript],
+        'duration': f"{int(duration//60)}:{int(duration%60):02d}",
+        'chunks': chunks,
+        'title': video_title,
+        'success': True
+    }
+    print(json.dumps(result))
+    
+except Exception as e:
+    print(json.dumps({'success': False, 'error': str(e)}))
+`]);
       let output = '';
       
       python.stdout.on('data', (data) => {
@@ -44,17 +93,16 @@ async function processVideoWithAI(youtubeId: string, videoId: number) {
             const result = JSON.parse(output.trim());
             
             if (result.success) {
-              // Log success with method used
-              const method = result.method_used || 'standard';
+              // Log agent activity
               await storage.createAgentLog({
                 agentName: "Transcript Fetcher",
-                message: `Video ${youtubeId} processed with placeholder transcript (YouTube blocks cloud infrastructure extraction)`,
-                level: "warning"
+                message: `Successfully extracted transcript for video ${youtubeId} with ${result.chunks.length} chunks`,
+                level: "info"
               });
               
-              // Update video with placeholder status
+              // Update video with real data including title
               await storage.updateVideo(videoId, { 
-                status: "placeholder_content",
+                status: "indexed",
                 title: result.title || `Video ${youtubeId}`,
                 duration: result.duration,
                 chunkCount: result.chunks.length,
@@ -87,37 +135,10 @@ async function processVideoWithAI(youtubeId: string, videoId: number) {
               
               console.log(`Successfully processed video ${youtubeId} with ${result.chunks.length} chunks`);
             } else {
-              // Even if transcript extraction fails, create a video record with placeholder
-              await storage.updateVideo(videoId, { 
-                status: "transcript_blocked",
-                title: `Video ${youtubeId}`,
-                duration: "10:00",
-                chunkCount: 0
-              });
-              
-              await storage.createAgentLog({
-                agentName: "Transcript Fetcher",
-                message: `Video ${youtubeId} processed with placeholder due to transcript blocking`,
-                level: "warning"
-              });
-              
-              return;
+              throw new Error(result.error || 'Failed to extract transcript');
             }
           } else {
-            // Handle non-zero exit codes
-            await storage.updateVideo(videoId, { 
-              status: "transcript_blocked",
-              title: `Video ${youtubeId}`,
-              duration: "10:00"
-            });
-            
-            await storage.createAgentLog({
-              agentName: "Transcript Fetcher", 
-              message: `Video ${youtubeId} processing failed, created placeholder record`,
-              level: "warning"
-            });
-            
-            return;
+            throw new Error(`Python script failed with code ${code}`);
           }
         } catch (error) {
           console.error('Video processing error:', error);
@@ -567,7 +588,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }, 30000); // Update every 30 seconds
 
-  // Channel processing endpoints - fetch real videos from YouTube API
+  // Channel processing endpoints
   app.post("/api/channels/videos", async (req, res) => {
     try {
       const { channelUrl } = req.body;
@@ -582,19 +603,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid channel URL format" });
       }
 
-      console.log(`Fetching videos for channel: ${channelId}`);
-      
-      // Use YouTube API to get real channel videos
-      const channelVideos = await fetchChannelVideos(channelId);
+      // Mock channel video fetching (in production, use YouTube Data API)
+      const mockVideos = generateMockChannelVideos(channelId);
       
       res.json({
         channelId,
-        videos: channelVideos,
-        totalCount: channelVideos.length
+        videos: mockVideos,
+        totalCount: mockVideos.length
       });
     } catch (error: any) {
       console.error("Error fetching channel videos:", error);
-      res.status(500).json({ error: `Failed to fetch channel videos: ${error.message}` });
+      res.status(500).json({ error: "Failed to fetch channel videos" });
     }
   });
 
@@ -631,7 +650,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 return;
               }
 
-              // Create video record first
+              // Process the video
               const newVideo = await storage.createVideo({
                 youtubeId: videoId,
                 title: video.title,
@@ -639,27 +658,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 status: "pending"
               });
               
-              // Try to process with AI - even if transcript fails, keep the video record
-              try {
-                await processVideoWithAI(videoId, newVideo.id);
-                results.processed++;
-              } catch (processError: any) {
-                // If processing fails due to YouTube blocking, still count as processed
-                if (processError.message.includes("blocking") || processError.message.includes("cloud provider") || processError.message.includes("transcript")) {
-                  await storage.updateVideo(newVideo.id, { 
-                    status: "transcript_blocked",
-                    transcript: null 
-                  });
-                  results.processed++;
-                  console.log(`Video ${videoId} added to database but transcript blocked by YouTube`);
-                } else {
-                  await storage.updateVideo(newVideo.id, { 
-                    status: "error" 
-                  });
-                  results.failed++;
-                  results.errors.push(`${video.title}: ${processError.message}`);
-                }
-              }
+              await processVideoWithAI(videoId, newVideo.id);
+              results.processed++;
             } catch (error: any) {
               results.failed++;
               results.errors.push(`${video.title}: ${error.message}`);
@@ -686,991 +686,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Course search and generation endpoints
-  app.post("/api/courses/search", async (req, res) => {
-    try {
-      const { topic, field, level, videoCount, focusAreas } = req.body;
-      
-      if (!topic || !field) {
-        return res.status(400).json({ error: "Topic and field are required" });
-      }
-
-      // Simulate intelligent video search with ranking
-      const searchResults = await searchTopicVideos(topic, field, level, videoCount, focusAreas);
-      
-      res.json({
-        topic,
-        field,
-        level,
-        videos: searchResults,
-        totalFound: searchResults.length
-      });
-    } catch (error: any) {
-      console.error("Error searching videos:", error);
-      res.status(500).json({ error: "Failed to search videos" });
-    }
-  });
-
-  app.post("/api/courses/generate", async (req, res) => {
-    try {
-      const { title, topic, field, level, description, prerequisites, learningOutcomes, videos } = req.body;
-      
-      if (!title || !topic || !field) {
-        return res.status(400).json({ error: "Missing required course data" });
-      }
-
-      console.log(`Generating course from existing videos: "${topic}" in ${field} (${level} level)`);
-      
-      // Get all videos from database instead of using provided videos array
-      const allVideos = await storage.getAllVideos();
-      console.log(`Found ${allVideos.length} total videos in database`);
-      
-      // Filter videos by relevance to topic and field
-      const relevantVideos = allVideos
-        .filter(video => {
-          const title = video.title.toLowerCase();
-          const topicLower = topic.toLowerCase();
-          const fieldLower = field.toLowerCase();
-          
-          // Check if video title contains topic or field keywords
-          return title.includes(topicLower) || 
-                 title.includes(fieldLower) ||
-                 topicLower.split(' ').some(word => title.includes(word)) ||
-                 fieldLower.split(' ').some(word => title.includes(word));
-        })
-        .map(video => ({
-          youtubeId: video.youtubeId,
-          title: video.title,
-          duration: video.duration || '0:00',
-          channelTitle: 'Database Video',
-          publishedAt: video.createdAt?.toISOString() || new Date().toISOString(),
-          relevanceScore: calculateVideoRelevance(video.title, topic, field),
-          theoreticalDepth: 0.8,
-          practicalValue: 0.8,
-          keyTopics: [topic, field],
-          field: field.toLowerCase()
-        }))
-        .sort((a, b) => b.relevanceScore - a.relevanceScore)
-        .slice(0, 6); // Limit to 6 most relevant videos
-      
-      if (relevantVideos.length === 0) {
-        return res.status(404).json({ 
-          error: 'No relevant videos found in database for this topic',
-          topic,
-          field,
-          level,
-          availableVideos: allVideos.length
-        });
-      }
-      
-      console.log(`Found ${relevantVideos.length} relevant videos from database`);
-
-      // Create course
-      const course = await storage.createCourse({
-        title: title || `${topic} in ${field}`,
-        description: description || `${level}-level course on ${topic} in the field of ${field} using existing video content`,
-        topic,
-        field,
-        level,
-        totalDuration: calculateTotalDuration(relevantVideos),
-        videoCount: relevantVideos.length,
-        status: 'draft'
-      });
-
-      console.log(`Created course with ID: ${course.id}`);
-      
-      // Generate modules using AI
-      await generateCourseModules(course.id, relevantVideos, topic, field, level);
-      
-      res.json(course);
-    } catch (error: any) {
-      console.error("Error generating course:", error);
-      res.status(500).json({ error: "Failed to generate course" });
-    }
-  });
-
-  app.get("/api/courses", async (req, res) => {
-    try {
-      const courses = await storage.getAllCourses();
-      res.json(courses);
-    } catch (error: any) {
-      console.error("Error fetching courses:", error);
-      res.status(500).json({ error: "Failed to fetch courses" });
-    }
-  });
-
-  app.get("/api/courses/:id", async (req, res) => {
-    try {
-      const courseId = parseInt(req.params.id);
-      const course = await storage.getCourse(courseId);
-      
-      if (!course) {
-        return res.status(404).json({ error: "Course not found" });
-      }
-
-      const modules = await storage.getCourseModules(courseId);
-      const modulesWithLectures = await Promise.all(
-        modules.map(async (module) => {
-          const lectures = await storage.getCourseLectures(module.id);
-          return { ...module, lectures };
-        })
-      );
-
-      res.json({
-        ...course,
-        modules: modulesWithLectures
-      });
-    } catch (error: any) {
-      console.error("Error fetching course:", error);
-      res.status(500).json({ error: "Failed to fetch course" });
-    }
-  });
-
-  // Academic content search endpoint
-  app.post('/api/academic/search', async (req, res) => {
-    try {
-      const { topic, field, level = 'graduate' } = req.body;
-      
-      if (!topic || !field) {
-        return res.status(400).json({ error: 'Topic and field are required' });
-      }
-
-      // Academic content database with ONLY VERIFIED real YouTube video IDs
-      const academicDatabase = {
-        // LLM + Biology combinations - Use only verified working videos
-        "llm biology": [
-          {
-            title: "MIT 6.034 Artificial Intelligence, Fall 2010 - Lecture 1: Introduction",
-            youtube_id: "TjZBTDzGeGg",
-            source: "MIT OpenCourseWare",
-            description: "Introduction to Artificial Intelligence course from MIT",
-            duration: "48:48",
-            academic_score: 0.95,
-            university: "MIT",
-            final_score: 0.92
-          },
-          {
-            title: "But what is a neural network? | Deep learning, chapter 1",
-            youtube_id: "aircAruvnKk",
-            source: "3Blue1Brown",
-            description: "Visual introduction to neural networks and deep learning",
-            duration: "19:13",
-            academic_score: 0.94,
-            university: "Educational",
-            final_score: 0.91
-          }
-        ],
-        
-        // Machine Learning + Biology - Use verified videos
-        "machine learning biology": [
-          {
-            title: "Stanford CS229: Machine Learning - Lecture 1",
-            youtube_id: "jGwO_UgTS7I", 
-            source: "Stanford Online",
-            description: "Andrew Ng's famous machine learning course",
-            duration: "1:18:49",
-            academic_score: 0.98,
-            university: "Stanford",
-            final_score: 0.96
-          },
-          {
-            title: "But what is a neural network? | Deep learning, chapter 1",
-            youtube_id: "aircAruvnKk",
-            source: "3Blue1Brown",
-            description: "Visual introduction to neural networks",
-            duration: "19:13",
-            academic_score: 0.94,
-            university: "Educational",
-            final_score: 0.91
-          }
-        ],
-
-        // General ML/AI courses - VERIFIED working videos
-        "machine learning": [
-          {
-            title: "MIT 6.034 Artificial Intelligence, Fall 2010 - Lecture 1",
-            youtube_id: "TjZBTDzGeGg",
-            source: "MIT OpenCourseWare",
-            description: "Introduction to Artificial Intelligence course from MIT",
-            duration: "48:48",
-            academic_score: 0.95,
-            university: "MIT",
-            final_score: 0.92
-          },
-          {
-            title: "Stanford CS229: Machine Learning - Lecture 1",
-            youtube_id: "jGwO_UgTS7I", 
-            source: "Stanford Online",
-            description: "Andrew Ng's famous machine learning course",
-            duration: "1:18:49",
-            academic_score: 0.98,
-            university: "Stanford",
-            final_score: 0.96
-          }
-        ],
-
-        // Computer Science foundations - VERIFIED working videos
-        "computer science": [
-          {
-            title: "Harvard CS50 2021 - Lecture 0 - Scratch",
-            youtube_id: "YoXxevp1WRQ",
-            source: "Harvard",
-            description: "Introduction to Computer Science",
-            duration: "1:47:13",
-            academic_score: 0.95,
-            university: "Harvard",
-            final_score: 0.92
-          }
-        ]
-      };
-      
-      // Smart topic + field combination matching
-      const topicLower = topic.toLowerCase();
-      const fieldLower = field.toLowerCase();
-      let matchingVideos: any[] = [];
-      
-      // Create search combinations
-      const searchKey = `${topicLower} ${fieldLower}`;
-      const topicFieldCombo = `${topicLower} ${fieldLower}`;
-      
-      // Smart matching: Check specific topic + field combinations first
-      console.log(`Searching for: "${topicLower}" in "${fieldLower}"`);
-      
-      // Check for LLM + Biology combinations
-      if ((topicLower.includes("llm") || topicLower.includes("language model")) && 
-          (fieldLower.includes("biology") || fieldLower.includes("bio"))) {
-        matchingVideos.push(...(academicDatabase["llm biology"] || []));
-        console.log("Found LLM + Biology specific content");
-      }
-      
-      // Check for ML + Biology combinations  
-      else if ((topicLower.includes("machine") || topicLower.includes("ml")) && 
-               (fieldLower.includes("biology") || fieldLower.includes("bio"))) {
-        matchingVideos.push(...(academicDatabase["machine learning biology"] || []));
-        console.log("Found ML + Biology specific content");
-      }
-      
-      // General topic matching only if no specific combinations found
-      else {
-        // Check exact database keys
-        for (const [dbKey, videos] of Object.entries(academicDatabase)) {
-          if (topicLower.includes(dbKey) || dbKey.includes(topicLower)) {
-            matchingVideos.push(...videos);
-            console.log(`Found general match for: ${dbKey}`);
-            break; // Take first match to avoid duplicates
-          }
-        }
-        
-        // Final fallback for ML/AI topics
-        if (matchingVideos.length === 0 && 
-            (topicLower.includes("machine") || topicLower.includes("learning") || 
-             topicLower.includes("ml") || topicLower.includes("ai"))) {
-          matchingVideos.push(...(academicDatabase["machine learning"] || []));
-          console.log("Using general ML fallback");
-        }
-      }
-      
-      // Fallback: General computer science if still no matches
-      if (matchingVideos.length === 0 && fieldLower.includes("computer")) {
-        matchingVideos = academicDatabase["computer science"] || [];
-      }
-      
-      // Remove duplicates and sort by final score
-      const uniqueVideos = matchingVideos.filter((video, index, self) => 
-        index === self.findIndex(v => v.youtube_id === video.youtube_id)
-      );
-      uniqueVideos.sort((a, b) => b.final_score - a.final_score);
-      
-      console.log(`Academic search found ${uniqueVideos.length} videos for "${topic}" in "${field}"`);
-      console.log('Academic videos:', uniqueVideos.map(v => `${v.title} (${v.youtube_id})`));
-      
-      res.json({
-        success: true,
-        topic,
-        field,
-        content_found: uniqueVideos.length,
-        academic_videos: uniqueVideos.slice(0, 10) // Return top 10
-      });
-    } catch (error: any) {
-      console.error('Academic search error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Academic video selection endpoint
-  app.post('/api/academic/select-videos', async (req, res) => {
-    try {
-      const { videos, courseId } = req.body;
-      
-      if (!videos || !Array.isArray(videos)) {
-        return res.status(400).json({ error: 'Videos array is required' });
-      }
-
-      // Process selected academic videos
-      const processedVideos = [];
-      
-      for (const video of videos) {
-        try {
-          // Ensure video exists in database
-          let dbVideo = await storage.getVideoByYoutubeId(video.youtube_id);
-          if (!dbVideo) {
-            dbVideo = await storage.createVideo({
-              youtubeId: video.youtube_id,
-              title: video.title,
-              duration: video.duration || '0:00',
-              status: "indexed"
-            });
-          }
-
-          processedVideos.push({
-            id: dbVideo.id,
-            youtubeId: video.youtube_id,
-            title: video.title,
-            duration: video.duration,
-            source: video.source,
-            university: video.university,
-            academic_score: video.academic_score,
-            final_score: video.final_score
-          });
-        } catch (error) {
-          console.error(`Error processing video ${video.youtube_id}:`, error);
-        }
-      }
-
-      res.json({
-        success: true,
-        processed_videos: processedVideos.length,
-        videos: processedVideos
-      });
-    } catch (error: any) {
-      console.error('Video selection error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
   return httpServer;
-}
-
-// Generate expanded search keywords using AI for better YouTube results
-async function generateExpandedSearchKeywords(topic: string, field: string, level: string): Promise<string[]> {
-  try {
-    const OpenAI = require('openai');
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-    const prompt = `Generate diverse search keywords to find high-quality educational YouTube videos on this topic.
-
-Topic: ${topic}
-Field: ${field}
-Level: ${level}
-
-Create 8 different search queries that would find excellent educational content:
-- Include university lectures (MIT, Stanford, Harvard, etc.)
-- Include popular educational channels (3Blue1Brown, Khan Academy, etc.)
-- Include technical tutorials and explanations
-- Include course names and professor names when relevant
-- Include both basic and advanced variations
-- Include practical applications and examples
-
-Format: Return as a JSON object with "keywords" array.
-
-Example for "neural networks" in "computer science":
-{
-  "keywords": [
-    "neural networks explained",
-    "MIT neural networks course",
-    "3Blue1Brown neural networks",
-    "deep learning tutorial",
-    "Andrew Ng neural networks",
-    "neural network programming",
-    "CNN tutorial explained",
-    "backpropagation algorithm"
-  ]
-}`;
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-    });
-
-    const result = JSON.parse(response.choices[0].message.content);
-    return result.keywords || [];
-  } catch (error) {
-    console.error('Error generating expanded keywords:', error);
-    // Fallback keywords
-    return [
-      `${topic} explained`,
-      `${topic} tutorial`,
-      `${topic} ${field} course`,
-      `${topic} lecture`,
-      `${topic} ${field} examples`,
-      `how to ${topic}`,
-      `${topic} beginner guide`,
-      `${topic} advanced concepts`
-    ];
-  }
-}
-
-// Search YouTube specifically for academic content
-async function searchYouTubeAcademic(query: string, topic: string, field: string): Promise<any[]> {
-  try {
-    const results = await searchYouTubeVideos(query, topic, field, 'graduate', 5);
-    
-    // Filter for academic channels and content
-    return results.filter(video => {
-      const title = video.title.toLowerCase();
-      const channel = video.channelTitle.toLowerCase();
-      
-      // Academic indicators
-      const academicKeywords = [
-        'mit', 'stanford', 'harvard', 'berkeley', 'carnegie mellon', 'cmu',
-        'university', 'college', 'opencourseware', 'lecture', 'course',
-        'professor', 'dr.', 'cs229', 'cs188', '6.034', 'tutorial'
-      ];
-      
-      return academicKeywords.some(keyword => 
-        title.includes(keyword) || channel.includes(keyword)
-      );
-    }).map(video => ({
-      ...video,
-      academic_score: calculateAcademicScore(video, topic, field),
-      source_type: 'youtube_academic'
-    }));
-  } catch (error) {
-    console.error('YouTube academic search error:', error);
-    return [];
-  }
-}
-
-// Calculate academic credibility score
-function calculateAcademicScore(video: any, topic: string, field: string): number {
-  let score = 0.5; // Base score
-  
-  const title = video.title.toLowerCase();
-  const channel = video.channelTitle.toLowerCase();
-  
-  // University bonus
-  const universities = ['mit', 'stanford', 'harvard', 'berkeley', 'cmu', 'carnegie mellon'];
-  if (universities.some(uni => channel.includes(uni) || title.includes(uni))) {
-    score += 0.3;
-  }
-  
-  // Course indicators
-  if (title.includes('lecture') || title.includes('course')) score += 0.15;
-  if (title.includes('opencourseware')) score += 0.2;
-  if (/cs\d+|6\.\d+/.test(title)) score += 0.1; // Course codes
-  
-  // Topic relevance
-  if (title.includes(topic.toLowerCase())) score += 0.1;
-  if (title.includes(field.toLowerCase())) score += 0.05;
-  
-  return Math.min(score, 1.0);
-}
-
-// Filter and rank academic content
-function filterAndRankAcademicContent(videos: any[], topic: string, field: string): any[] {
-  return videos
-    .filter(video => video.academic_score > 0.6) // Only high-quality academic content
-    .sort((a, b) => b.academic_score - a.academic_score)
-    .map(video => ({
-      title: video.title,
-      youtube_id: video.youtubeId,
-      source: video.channelTitle,
-      description: video.description || `Academic ${field} content on ${topic}`,
-      duration: video.duration,
-      academic_score: video.academic_score,
-      university: extractUniversity(video.channelTitle, video.title),
-      final_score: video.academic_score,
-      view_count: video.viewCount || 0
-    }));
-}
-
-// Extract university name from title/channel
-function extractUniversity(channel: string, title: string): string {
-  const text = `${channel} ${title}`.toLowerCase();
-  
-  if (text.includes('mit')) return 'MIT';
-  if (text.includes('stanford')) return 'Stanford';
-  if (text.includes('harvard')) return 'Harvard';
-  if (text.includes('berkeley')) return 'UC Berkeley';
-  if (text.includes('carnegie mellon') || text.includes('cmu')) return 'Carnegie Mellon';
-  if (text.includes('university')) return 'University';
-  
-  return 'Educational';
-}
-
-// Enhanced search function using AI-generated keywords
-async function searchTopicVideosWithKeywords(topic: string, field: string, level: string, videoCount: number, keywords: string[]) {
-  console.log(`Searching with ${keywords.length} AI-generated keywords...`);
-  
-  try {
-    const { searchYouTubeVideos } = await import('./youtube-api');
-    
-    const allResults: any[] = [];
-    
-    // Search with each keyword and collect results
-    for (let i = 0; i < Math.min(keywords.length, 5); i++) {
-      const keyword = keywords[i];
-      try {
-        console.log(`Searching YouTube with: "${keyword}"`);
-        const results = await searchYouTubeVideos(keyword, topic, field, level, 4);
-        allResults.push(...results);
-      } catch (error) {
-        console.error(`Error searching with keyword "${keyword}":`, error);
-      }
-    }
-    
-    // Remove duplicates and rank by relevance
-    const uniqueResults = removeDuplicateVideos(allResults);
-    const rankedResults = rankVideosByRelevance(uniqueResults, topic, field);
-    
-    console.log(`Found ${rankedResults.length} unique videos from keyword expansion`);
-    return rankedResults.slice(0, videoCount);
-    
-  } catch (error) {
-    console.error('YouTube API error, using fallback search:', error);
-    return await searchTopicVideos(topic, field, level, videoCount, []);
-  }
-}
-
-// Remove duplicate videos based on YouTube ID
-function removeDuplicateVideos(videos: any[]): any[] {
-  const seen = new Set();
-  return videos.filter(video => {
-    if (seen.has(video.youtubeId)) {
-      return false;
-    }
-    seen.add(video.youtubeId);
-    return true;
-  });
-}
-
-// Rank videos by relevance to topic and field
-function rankVideosByRelevance(videos: any[], topic: string, field: string): any[] {
-  return videos.map(video => {
-    let relevanceScore = 0;
-    
-    const title = video.title.toLowerCase();
-    const description = (video.description || '').toLowerCase();
-    const channel = video.channelTitle.toLowerCase();
-    
-    // Topic relevance
-    if (title.includes(topic.toLowerCase())) relevanceScore += 0.3;
-    if (description.includes(topic.toLowerCase())) relevanceScore += 0.1;
-    
-    // Field relevance
-    if (title.includes(field.toLowerCase())) relevanceScore += 0.2;
-    if (description.includes(field.toLowerCase())) relevanceScore += 0.1;
-    
-    // Educational channel bonus
-    const educationalChannels = ['mit', 'stanford', 'harvard', '3blue1brown', 'khan academy', 'coursera', 'edx'];
-    if (educationalChannels.some(edu => channel.includes(edu))) {
-      relevanceScore += 0.2;
-    }
-    
-    // Lecture/course bonus
-    if (title.includes('lecture') || title.includes('course') || title.includes('tutorial')) {
-      relevanceScore += 0.1;
-    }
-    
-    return {
-      ...video,
-      relevanceScore: Math.min(relevanceScore, 1.0)
-    };
-  }).sort((a, b) => b.relevanceScore - a.relevanceScore);
-}
-
-async function searchTopicVideos(topic: string, field: string, level: string, videoCount: number, focusAreas: string[] = []) {
-  // Try YouTube API search first, fall back to curated content if API unavailable
-  try {
-    const { searchYouTubeVideos } = await import('./youtube-api');
-    const youtubeResults = await searchYouTubeVideos(topic, field, level, Math.max(videoCount * 4, 40)); // Get even more results to filter from
-    
-    if (youtubeResults.length >= videoCount) {
-      console.log(`YouTube API found ${youtubeResults.length} valid videos for "${topic} ${field}"`);
-      
-      // Convert YouTube API results to our format
-      const convertedResults = youtubeResults.slice(0, videoCount).map(video => ({
-        youtubeId: video.youtubeId,
-        title: video.title,
-        duration: video.duration,
-        channelTitle: video.channelTitle,
-        publishedAt: video.publishedAt,
-        relevanceScore: (video as any).educationalScore || 0.8,
-        theoreticalDepth: calculateTheoreticalDepth(video.title, video.description),
-        practicalValue: calculatePracticalValue(video.title, video.description),
-        keyTopics: extractKeyTopics(video.title, video.description, topic, field),
-        field: field.toLowerCase()
-      }));
-      
-      console.log(`Returning ${convertedResults.length} verified watchable videos:`);
-      convertedResults.forEach(video => {
-        console.log(`- ${video.title} (${video.youtubeId}) - ${video.duration}`);
-      });
-      
-      return convertedResults;
-    } else {
-      console.log(`YouTube API found only ${youtubeResults.length} videos, falling back to curated content`);
-    }
-  } catch (error: any) {
-    console.log('YouTube API error, using curated content:', error.message);
-  }
-  
-  // Fallback to curated educational content
-  
-  const academicVideos = [
-    // Machine Learning & AI
-    {
-      youtubeId: "aircAruvnKk",
-      title: "But what is a Neural Network? | Deep learning, chapter 1",
-      duration: "19:13",
-      channelTitle: "3Blue1Brown",
-      publishedAt: "2017-10-05",
-      relevanceScore: 0.98,
-      theoreticalDepth: 0.9,
-      practicalValue: 0.95,
-      keyTopics: ["neural networks", "deep learning", "machine learning"],
-      field: "computer science"
-    },
-    {
-      youtubeId: "IHZwWFHWa-w",
-      title: "Gradient descent, how neural networks learn | Deep learning, chapter 2",
-      duration: "21:01",
-      channelTitle: "3Blue1Brown",
-      publishedAt: "2017-10-16",
-      relevanceScore: 0.97,
-      theoreticalDepth: 0.92,
-      practicalValue: 0.9,
-      keyTopics: ["gradient descent", "neural networks", "optimization"],
-      field: "computer science"
-    },
-    {
-      youtubeId: "Ilg3gGewQ5U",
-      title: "What is backpropagation really doing? | Deep learning, chapter 3",
-      duration: "13:54",
-      channelTitle: "3Blue1Brown",
-      publishedAt: "2017-11-03",
-      relevanceScore: 0.96,
-      theoreticalDepth: 0.94,
-      practicalValue: 0.88,
-      keyTopics: ["backpropagation", "neural networks", "deep learning"],
-      field: "computer science"
-    },
-    {
-      youtubeId: "tIeHLnjs5U8",
-      title: "Backpropagation calculus | Deep learning, chapter 4",
-      duration: "10:17",
-      channelTitle: "3Blue1Brown",
-      publishedAt: "2017-11-03",
-      relevanceScore: 0.95,
-      theoreticalDepth: 0.96,
-      practicalValue: 0.85,
-      keyTopics: ["backpropagation", "calculus", "neural networks"],
-      field: "computer science"
-    },
-    
-    // Quantum Physics & Biology
-    {
-      youtubeId: "m2SW35yaajE",
-      title: "Open Quantum Systems Theory of Ultra Weak UV Photon Emissions",
-      duration: "15:32",
-      channelTitle: "Dr. Babcock",
-      publishedAt: "2024-03-15",
-      relevanceScore: 0.95,
-      theoreticalDepth: 0.9,
-      practicalValue: 0.7,
-      keyTopics: ["quantum systems", "photon emissions", "theoretical physics"],
-      field: "physics"
-    },
-    {
-      youtubeId: "9u7rIODg2YU",
-      title: "Quantum Biology Research Framework and Applications",
-      duration: "12:18",
-      channelTitle: "Dr. Babcock",
-      publishedAt: "2024-01-10",
-      relevanceScore: 0.88,
-      theoreticalDepth: 0.85,
-      practicalValue: 0.8,
-      keyTopics: ["quantum biology", "research methods", "applications"],
-      field: "biology"
-    },
-    {
-      youtubeId: "mf6lkIipjF0",
-      title: "Quantum Biology: From Photons to Physiology",
-      duration: "28:45",
-      channelTitle: "Dr. Babcock",
-      publishedAt: "2024-02-20",
-      relevanceScore: 0.92,
-      theoreticalDepth: 0.88,
-      practicalValue: 0.75,
-      keyTopics: ["quantum biology", "photons", "physiology"],
-      field: "biology"
-    },
-    
-    // Mathematics & Statistics
-    {
-      youtubeId: "kYB8IZa5AuE",
-      title: "Linear transformations and matrices | Chapter 3, Essence of linear algebra",
-      duration: "10:58",
-      channelTitle: "3Blue1Brown",
-      publishedAt: "2016-08-15",
-      relevanceScore: 0.92,
-      theoreticalDepth: 0.88,
-      practicalValue: 0.9,
-      keyTopics: ["linear algebra", "matrices", "transformations"],
-      field: "mathematics"
-    },
-    {
-      youtubeId: "fNk_zzaMoSs",
-      title: "The determinant | Chapter 6, Essence of linear algebra",
-      duration: "12:12",
-      channelTitle: "3Blue1Brown",
-      publishedAt: "2016-08-29",
-      relevanceScore: 0.90,
-      theoreticalDepth: 0.85,
-      practicalValue: 0.85,
-      keyTopics: ["determinant", "linear algebra", "mathematics"],
-      field: "mathematics"
-    },
-    
-    // Computer Science Fundamentals
-    {
-      youtubeId: "jNQXAC9IVRw",
-      title: "me at the zoo",
-      duration: "0:19",
-      channelTitle: "jawed",
-      publishedAt: "2005-04-23",
-      relevanceScore: 0.20,
-      theoreticalDepth: 0.1,
-      practicalValue: 0.1,
-      keyTopics: ["historical", "first youtube video"],
-      field: "history"
-    },
-    
-    // Data Science & Statistics
-    {
-      youtubeId: "HcEs6OGGRJo",
-      title: "What is Bayes' theorem? | Probability and Statistics",
-      duration: "15:24",
-      channelTitle: "Khan Academy",
-      publishedAt: "2019-03-12",
-      relevanceScore: 0.89,
-      theoreticalDepth: 0.82,
-      practicalValue: 0.88,
-      keyTopics: ["bayes theorem", "probability", "statistics"],
-      field: "mathematics"
-    }
-  ];
-
-  // Filter and rank videos based on topic, field, and level
-  let filteredVideos = academicVideos.filter(video => {
-    const topicMatch = video.title.toLowerCase().includes(topic.toLowerCase()) ||
-                     video.keyTopics.some(t => t.toLowerCase().includes(topic.toLowerCase()));
-    const fieldMatch = video.field.toLowerCase().includes(field.toLowerCase());
-    
-    return topicMatch || fieldMatch;
-  });
-
-  // If no direct matches, include all videos for demo purposes
-  if (filteredVideos.length === 0) {
-    filteredVideos = academicVideos;
-  }
-
-  // Adjust relevance scores based on level and focus areas
-  filteredVideos = filteredVideos.map(video => {
-    let adjustedScore = video.relevanceScore;
-    
-    // Adjust for academic level
-    if (level === "doctoral") {
-      adjustedScore *= video.theoreticalDepth;
-    } else if (level === "undergraduate") {
-      adjustedScore *= video.practicalValue;
-    }
-    
-    // Boost for focus area matches
-    if (focusAreas && focusAreas.length > 0) {
-      const focusMatch = focusAreas.some(area => 
-        video.keyTopics.some(topic => topic.toLowerCase().includes(area.toLowerCase()))
-      );
-      if (focusMatch) adjustedScore *= 1.2;
-    }
-
-    return {
-      ...video,
-      relevanceScore: Math.min(adjustedScore, 1.0)
-    };
-  });
-
-  // Sort by relevance and return requested count
-  return filteredVideos
-    .sort((a, b) => b.relevanceScore - a.relevanceScore)
-    .slice(0, videoCount);
-}
-
-async function generateCourseModules(courseId: number, videos: any[], topic: string, field: string, level: string) {
-  // Group videos into logical modules based on content and progression
-  const modules = [];
-  const videosPerModule = Math.ceil(videos.length / 3); // Aim for 3 modules
-  
-  const moduleTemplates = [
-    { title: "Foundations", description: `Core concepts and theoretical foundations of ${topic}` },
-    { title: "Advanced Topics", description: `Advanced theoretical and practical aspects of ${topic}` },
-    { title: "Applications", description: `Real-world applications and case studies in ${topic}` }
-  ];
-
-  for (let i = 0; i < 3 && i * videosPerModule < videos.length; i++) {
-    const moduleVideos = videos.slice(i * videosPerModule, (i + 1) * videosPerModule);
-    
-    const module = await storage.createCourseModule({
-      courseId,
-      title: moduleTemplates[i].title,
-      description: moduleTemplates[i].description,
-      orderIndex: i,
-      objectives: generateModuleObjectives(moduleTemplates[i].title, topic, level)
-    });
-
-    // Create lectures for each video in this module
-    const lectures = [];
-    for (let j = 0; j < moduleVideos.length; j++) {
-      const video = moduleVideos[j];
-      
-      // Ensure video exists in database with correct YouTube ID
-      let dbVideo = await storage.getVideoByYoutubeId(video.youtubeId);
-      if (!dbVideo) {
-        dbVideo = await storage.createVideo({
-          youtubeId: video.youtubeId, // Keep the real YouTube ID
-          title: video.title,
-          duration: video.duration,
-          status: "indexed"
-        });
-      }
-
-      const lecture = await storage.createCourseLecture({
-        moduleId: module.id,
-        videoId: dbVideo.id,
-        title: video.title,
-        orderIndex: j,
-        keyTopics: video.keyTopics || [],
-        theoreticalConcepts: extractTheoreticalConcepts(video.title, topic),
-        practicalApplications: extractPracticalApplications(video.title, field),
-        relevanceScore: video.relevanceScore || 0.8
-      });
-
-      lectures.push(lecture);
-    }
-
-    modules.push({ ...module, lectures });
-  }
-
-  return modules;
-}
-
-function calculateTotalDuration(videos: any[]): string {
-  let totalMinutes = 0;
-  
-  videos.forEach(video => {
-    const duration = video.duration || "0:00";
-    const parts = duration.split(":");
-    if (parts.length === 2) {
-      totalMinutes += parseInt(parts[0]) + parseInt(parts[1]) / 60;
-    }
-  });
-
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = Math.round(totalMinutes % 60);
-  
-  return hours > 0 ? `${hours}:${minutes.toString().padStart(2, '0')}` : `${minutes}:00`;
-}
-
-function generateModuleObjectives(moduleTitle: string, topic: string, level: string): string[] {
-  const baseObjectives = {
-    "Foundations": [
-      `Understand the fundamental principles of ${topic}`,
-      `Analyze key theoretical frameworks`,
-      `Identify core concepts and terminology`
-    ],
-    "Advanced Topics": [
-      `Apply advanced techniques in ${topic}`,
-      `Evaluate complex theoretical models`,
-      `Synthesize multiple approaches and methodologies`
-    ],
-    "Applications": [
-      `Implement practical solutions using ${topic}`,
-      `Design real-world applications`,
-      `Assess the impact and effectiveness of implementations`
-    ]
-  };
-
-  return baseObjectives[moduleTitle as keyof typeof baseObjectives] || [];
-}
-
-function extractTheoreticalConcepts(title: string, topic: string): string[] {
-  const concepts = [];
-  
-  if (title.toLowerCase().includes("quantum")) concepts.push("Quantum mechanics principles");
-  if (title.toLowerCase().includes("theory")) concepts.push("Theoretical frameworks");
-  if (title.toLowerCase().includes("system")) concepts.push("Systems analysis");
-  if (title.toLowerCase().includes("algorithm")) concepts.push("Algorithmic theory");
-  if (title.toLowerCase().includes("biology")) concepts.push("Biological systems");
-  
-  return concepts.length > 0 ? concepts : [`${topic} fundamentals`];
-}
-
-function extractPracticalApplications(title: string, field: string): string[] {
-  const applications = [];
-  
-  if (title.toLowerCase().includes("research")) applications.push("Research methodologies");
-  if (title.toLowerCase().includes("application")) applications.push("Industry applications");
-  if (title.toLowerCase().includes("framework")) applications.push("Implementation frameworks");
-  if (title.toLowerCase().includes("method")) applications.push("Practical methods");
-  
-  return applications.length > 0 ? applications : [`${field} applications`];
-}
-
-function calculateTheoreticalDepth(title: string, description: string): number {
-  const text = `${title} ${description}`.toLowerCase();
-  let score = 0.5;
-  
-  // Advanced keywords increase theoretical depth
-  const advancedTerms = ["theory", "algorithm", "mathematical", "proof", "analysis", "research", "advanced"];
-  advancedTerms.forEach(term => {
-    if (text.includes(term)) score += 0.1;
-  });
-  
-  return Math.min(1.0, score);
-}
-
-function calculatePracticalValue(title: string, description: string): number {
-  const text = `${title} ${description}`.toLowerCase();
-  let score = 0.5;
-  
-  // Practical keywords increase practical value
-  const practicalTerms = ["tutorial", "how to", "implementation", "example", "practice", "hands-on", "project"];
-  practicalTerms.forEach(term => {
-    if (text.includes(term)) score += 0.1;
-  });
-  
-  return Math.min(1.0, score);
-}
-
-function extractKeyTopics(title: string, description: string, topic: string, field: string): string[] {
-  const text = `${title} ${description}`.toLowerCase();
-  const topics = [topic.toLowerCase(), field.toLowerCase()];
-  
-  // Common academic topics
-  const academicTerms = [
-    "machine learning", "deep learning", "neural networks", "algorithms", "data science",
-    "quantum physics", "biology", "chemistry", "mathematics", "statistics",
-    "computer science", "programming", "software engineering", "research methods"
-  ];
-  
-  academicTerms.forEach(term => {
-    if (text.includes(term) && !topics.includes(term)) {
-      topics.push(term);
-    }
-  });
-  
-  return topics.slice(0, 5); // Limit to 5 key topics
 }
 
 function extractChannelId(url: string): string | null {
@@ -1690,212 +706,53 @@ function extractChannelId(url: string): string | null {
   return null;
 }
 
-// Fetch real videos from a YouTube channel using API
-async function fetchChannelVideos(channelId: string) {
-  const apiKey = process.env.YOUTUBE_API_KEY;
-  if (!apiKey) {
-    throw new Error("YouTube API key not configured");
-  }
-
-  try {
-    // First, get the channel's uploads playlist ID
-    // Handle @username format by using forHandle parameter
-    let channelUrl;
-    if (channelId.startsWith('UC')) {
-      channelUrl = `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${channelId}&key=${apiKey}`;
-    } else {
-      // For @username or username, try forHandle first
-      channelUrl = `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&forHandle=${channelId}&key=${apiKey}`;
+function generateMockChannelVideos(channelId: string) {
+  // Only use real, existing YouTube videos to avoid transcript errors
+  // In production, this would use YouTube Data API to fetch actual channel videos
+  const realVideos = [
+    {
+      id: "m2SW35yaajE",
+      title: "Open Quantum Systems Theory of Ultra Weak UV Photon Emissions",
+      duration: "15:32",
+      publishedAt: "2024-03-15",
+      thumbnailUrl: "https://i.ytimg.com/vi/m2SW35yaajE/hqdefault.jpg",
+      url: "https://www.youtube.com/watch?v=m2SW35yaajE"
+    },
+    {
+      id: "mf6lkIipjF0", 
+      title: "Quantum Biology: From Photons to Physiology",
+      duration: "28:45",
+      publishedAt: "2024-02-20",
+      thumbnailUrl: "https://i.ytimg.com/vi/mf6lkIipjF0/hqdefault.jpg",
+      url: "https://www.youtube.com/watch?v=mf6lkIipjF0"
+    },
+    {
+      id: "9u7rIODg2YU",
+      title: "Quantum Biology Research Framework and Applications",
+      duration: "12:18",
+      publishedAt: "2024-01-10",
+      thumbnailUrl: "https://i.ytimg.com/vi/9u7rIODg2YU/hqdefault.jpg", 
+      url: "https://www.youtube.com/watch?v=9u7rIODg2YU"
+    },
+    {
+      id: "dQw4w9WgXcQ",
+      title: "Rick Astley - Never Gonna Give You Up (Official Video)",
+      duration: "3:33",
+      publishedAt: "2009-10-25",
+      thumbnailUrl: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+      url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    },
+    {
+      id: "jNQXAC9IVRw",
+      title: "Me at the zoo",
+      duration: "0:19",
+      publishedAt: "2005-04-23",
+      thumbnailUrl: "https://i.ytimg.com/vi/jNQXAC9IVRw/hqdefault.jpg",
+      url: "https://www.youtube.com/watch?v=jNQXAC9IVRw"
     }
+  ];
 
-    const channelResponse = await fetch(channelUrl);
-    if (!channelResponse.ok) {
-      throw new Error(`YouTube API error: ${channelResponse.statusText}`);
-    }
-
-    const channelData = await channelResponse.json();
-    if (!channelData.items || channelData.items.length === 0) {
-      // If forHandle failed, try forUsername as fallback
-      if (!channelId.startsWith('UC')) {
-        const fallbackUrl = `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&forUsername=${channelId}&key=${apiKey}`;
-        const fallbackResponse = await fetch(fallbackUrl);
-        if (fallbackResponse.ok) {
-          const fallbackData = await fallbackResponse.json();
-          if (fallbackData.items && fallbackData.items.length > 0) {
-            const uploadsPlaylistId = fallbackData.items[0].contentDetails.relatedPlaylists.uploads;
-            return await getPlaylistVideos(uploadsPlaylistId, apiKey);
-          }
-        }
-      }
-      throw new Error("Channel not found - try using the full channel URL or channel ID");
-    }
-
-    const uploadsPlaylistId = channelData.items[0].contentDetails.relatedPlaylists.uploads;
-    return await getPlaylistVideos(uploadsPlaylistId, apiKey);
-
-  } catch (error) {
-    console.error('Error fetching channel videos:', error);
-    throw error;
-  }
-}
-
-// Helper function to get videos from a playlist
-async function getPlaylistVideos(uploadsPlaylistId: string, apiKey: string) {
-  // Get videos from the uploads playlist (up to 50 videos)
-  const playlistUrl = `https://www.googleapis.com/youtube/v3/playlistItems?` +
-    `part=snippet&` +
-    `playlistId=${uploadsPlaylistId}&` +
-    `maxResults=50&` +
-    `key=${apiKey}`;
-
-  const playlistResponse = await fetch(playlistUrl);
-  if (!playlistResponse.ok) {
-    throw new Error(`YouTube playlist API error: ${playlistResponse.statusText}`);
-  }
-
-  const playlistData = await playlistResponse.json();
-  
-  if (!playlistData.items || playlistData.items.length === 0) {
-    return [];
-  }
-
-  // Get detailed video information
-  const videoIds = playlistData.items
-    .map((item: any) => item.snippet.resourceId.videoId)
-    .join(',');
-
-  const videosUrl = `https://www.googleapis.com/youtube/v3/videos?` +
-    `part=snippet,contentDetails,statistics&` +
-    `id=${videoIds}&` +
-    `key=${apiKey}`;
-
-  const videosResponse = await fetch(videosUrl);
-  if (!videosResponse.ok) {
-    throw new Error(`YouTube videos API error: ${videosResponse.statusText}`);
-  }
-
-  const videosData = await videosResponse.json();
-
-  // Format videos for the interface
-  const channelVideos = videosData.items
-    .filter((item: any) => {
-      // Filter out shorts and very short videos
-      const duration = parseDuration(item.contentDetails.duration);
-      return duration >= 60; // At least 1 minute
-    })
-    .map((item: any) => ({
-      id: item.id,
-      title: item.snippet.title,
-      duration: formatDuration(item.contentDetails.duration),
-      publishedAt: item.snippet.publishedAt.split('T')[0],
-      thumbnailUrl: item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url,
-      url: `https://www.youtube.com/watch?v=${item.id}`,
-      viewCount: parseInt(item.statistics.viewCount || '0'),
-      description: item.snippet.description?.substring(0, 200) + '...' || ''
-    }));
-
-  console.log(`Found ${channelVideos.length} videos in playlist`);
-  return channelVideos;
-}
-
-// Helper function to parse ISO 8601 duration
-function parseDuration(duration: string): number {
-  const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
-  if (!match) return 0;
-  
-  const hours = parseInt(match[1]?.replace('H', '') || '0');
-  const minutes = parseInt(match[2]?.replace('M', '') || '0');
-  const seconds = parseInt(match[3]?.replace('S', '') || '0');
-  
-  return hours * 3600 + minutes * 60 + seconds;
-}
-
-// Helper function to format duration
-function formatDuration(isoDuration: string): string {
-  const totalSeconds = parseDuration(isoDuration);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  
-  if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  } else {
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  }
-}
-
-// Calculate relevance score for database videos
-function calculateVideoRelevance(title: string, topic: string, field: string): number {
-  let score = 0;
-  const titleLower = title.toLowerCase();
-  const topicLower = topic.toLowerCase();
-  const fieldLower = field.toLowerCase();
-  
-  // Exact topic match
-  if (titleLower.includes(topicLower)) score += 0.5;
-  
-  // Exact field match
-  if (titleLower.includes(fieldLower)) score += 0.3;
-  
-  // Partial word matches
-  const topicWords = topicLower.split(' ');
-  const fieldWords = fieldLower.split(' ');
-  
-  topicWords.forEach(word => {
-    if (word.length > 3 && titleLower.includes(word)) score += 0.1;
-  });
-  
-  fieldWords.forEach(word => {
-    if (word.length > 3 && titleLower.includes(word)) score += 0.05;
-  });
-  
-  return Math.min(score, 1.0);
-}
-
-async function getRealTranscript(videoId: string): Promise<string | null> {
-  return new Promise((resolve, reject) => {
-    const options = {
-      mode: 'text' as const,
-      pythonPath: 'python3',
-      pythonOptions: ['-u'],
-      scriptPath: './server',
-      args: [videoId]
-    };
-
-    PythonShell.run('youtube-transcript-direct.py', options, (err, results) => {
-      if (err) {
-        console.error('Working transcript extraction error:', err);
-        resolve(null);
-        return;
-      }
-
-      if (results && results.length > 0) {
-        try {
-          const transcriptData = JSON.parse(results[0]);
-          if (transcriptData && Array.isArray(transcriptData)) {
-            // Convert transcript segments to single text
-            const fullText = transcriptData
-              .map((segment: any) => segment.text)
-              .join(' ');
-            
-            if (fullText.trim().length > 0) {
-              console.log(`Successfully extracted real transcript: ${fullText.length} characters`);
-              resolve(fullText);
-            } else {
-              resolve(null);
-            }
-          } else {
-            resolve(null);
-          }
-        } catch (parseError) {
-          console.error('Failed to parse transcript data:', parseError);
-          resolve(null);
-        }
-      } else {
-        resolve(null);
-      }
-    });
-  });
+  return realVideos;
 }
 
 function extractVideoId(url: string): string | null {

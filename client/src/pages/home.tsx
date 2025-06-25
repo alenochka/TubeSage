@@ -5,14 +5,9 @@ import VideoInput from "@/components/video-input";
 import QueryInterface from "@/components/query-interface";
 import ResultsDisplay from "@/components/results-display";
 import VectorDatabase from "@/components/vector-database";
-
 import AgentPanel from "@/components/agent-panel";
 import AgentDiagram from "@/components/agent-diagram";
 import ChannelProcessor from "@/components/channel-processor";
-import CourseBuilderSimple from "@/components/course-builder-simple";
-import CourseLibrary from "@/components/course-library";
-import TranscriptStatusBanner from "@/components/transcript-status-banner";
-import CourseViewer from "@/components/course-viewer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useWebSocket } from "@/hooks/use-websocket";
@@ -20,7 +15,6 @@ import { useWebSocket } from "@/hooks/use-websocket";
 export default function Home() {
   const [activeAgentCount, setActiveAgentCount] = useState(4);
   const [selectedQuery, setSelectedQuery] = useState<any>(null);
-  const [selectedCourse, setSelectedCourse] = useState<any>(null);
   
   // WebSocket connection for real-time updates
   useWebSocket("/ws");
@@ -67,31 +61,14 @@ export default function Home() {
             {/* Channel Processor */}
             <ChannelProcessor />
 
-            {/* Course Builder */}
-            <CourseBuilderSimple onCourseCreated={(course) => {
-              setSelectedCourse(course);
-            }} />
-
-            {/* Course Library */}
-            {!selectedCourse ? (
-              <CourseLibrary onCourseSelect={setSelectedCourse} />
-            ) : (
-              <CourseViewer 
-                courseId={selectedCourse.id} 
-                onBack={() => setSelectedCourse(null)} 
-              />
-            )}
-
             {/* Query Interface */}
             <QueryInterface onQuerySelect={setSelectedQuery} />
 
             {/* Results Display */}
             {selectedQuery && <ResultsDisplay query={selectedQuery} />}
 
-            {/* Agent Orchestration */}
-            <div id="agent-orchestration" className="scroll-mt-20">
-              <AgentDiagram />
-            </div>
+            {/* Agent Activity Diagram */}
+            <AgentDiagram />
             
             {/* Vector Database */}
             <VectorDatabase />
