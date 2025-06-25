@@ -1014,6 +1014,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
   return httpServer;
 }
 
+// Generate academic search keywords using AI
+async function generateAcademicSearchKeywords(topic: string, field: string, level: string): Promise<string[]> {
+  try {
+    const OpenAI = require('openai');
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    const prompt = `Generate 5 specific academic search keywords for finding university lectures and courses on YouTube.
+
+Topic: ${topic}
+Field: ${field}
+Level: ${level}
+
+Requirements:
+- Include university names (MIT, Stanford, Harvard, Berkeley, CMU, etc.)
+- Include course codes when relevant (CS229, 6.034, etc.)
+- Focus on formal educational content
+- Include professor names when known
+- Target ${level}-level content
+
+Format: Return as a JSON array of strings, each being a complete search query.
+
+Example for "machine learning" in "computer science":
+["MIT 6.034 artificial intelligence", "Stanford CS229 machine learning Andrew Ng", "Harvard CS109 data science", "Berkeley CS188 AI", "CMU machine learning course"]`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+    });
+
+    const result = JSON.parse(response.choices[0].message.content);
+    return result.keywords || result.search_queries || [];
+  } catch (error) {
+    console.error('Error generating academic keywords:', error);
+    // Fallback keywords
+    return [
+      `${topic} ${field} university lecture`,
+      `MIT ${topic} course`,
+      `Stanford ${topic} ${field}`,
+      `Harvard ${topic} lecture`,
+      `${topic} ${field} tutorial academic`
+    ];
+  }
+}
+
+// Search YouTube specifically for academic content
+async function searchYouTubeAcademic(query: string, topic: string, field: string): Promise<any[]> {
+  try {
+    const results = await searchYouTubeVideos(query, topic, field, 'graduate', 5);
+    
+    // Filter for academic channels and content
+    return results.filter(video => {
+      const title = video.title.toLowerCase();
+      const channel = video.channelTitle.toLowerCase();
+      
+      // Academic indicators
+      const academicKeywords = [
+        'mit', 'stanford', 'harvard', 'berkeley', 'carnegie mellon', 'cmu',
+        'university', 'college', 'opencourseware', 'lecture', 'course',
+        'professor', 'dr.', 'cs229', 'cs188', '6.034', 'tutorial'
+      ];
+      
+      return academicKeywords.some(keyword => 
+        title.includes(keyword) || channel.includes(keyword)
+      );
+    }).map(video => ({
+      ...video,
+      academic_score: calculateAcademicScore(video, topic, field),
+      source_type: 'youtube_academic'
+    }));
+  } catch (error) {
+    console.error('YouTube academic search error:', error);
+    return [];
+  }
+}
+
+// Calculate academic credibility score
+function calculateAcademicScore(video: any, topic: string, field: string): number {
+  let score = 0.5; // Base score
+  
+  const title = video.title.toLowerCase();
+  const channel = video.channelTitle.toLowerCase();
+  
+  // University bonus
+  const universities = ['mit', 'stanford', 'harvard', 'berkeley', 'cmu', 'carnegie mellon'];
+  if (universities.some(uni => channel.includes(uni) || title.includes(uni))) {
+    score += 0.3;
+  }
+  
+  // Course indicators
+  if (title.includes('lecture') || title.includes('course')) score += 0.15;
+  if (title.includes('opencourseware')) score += 0.2;
+  if (/cs\d+|6\.\d+/.test(title)) score += 0.1; // Course codes
+  
+  // Topic relevance
+  if (title.includes(topic.toLowerCase())) score += 0.1;
+  if (title.includes(field.toLowerCase())) score += 0.05;
+  
+  return Math.min(score, 1.0);
+}
+
+// Filter and rank academic content
+function filterAndRankAcademicContent(videos: any[], topic: string, field: string): any[] {
+  return videos
+    .filter(video => video.academic_score > 0.6) // Only high-quality academic content
+    .sort((a, b) => b.academic_score - a.academic_score)
+    .map(video => ({
+      title: video.title,
+      youtube_id: video.youtubeId,
+      source: video.channelTitle,
+      description: video.description || `Academic ${field} content on ${topic}`,
+      duration: video.duration,
+      academic_score: video.academic_score,
+      university: extractUniversity(video.channelTitle, video.title),
+      final_score: video.academic_score,
+      view_count: video.viewCount || 0
+    }));
+}
+
+// Extract university name from title/channel
+function extractUniversity(channel: string, title: string): string {
+  const text = `${channel} ${title}`.toLowerCase();
+  
+  if (text.includes('mit')) return 'MIT';
+  if (text.includes('stanford')) return 'Stanford';
+  if (text.includes('harvard')) return 'Harvard';
+  if (text.includes('berkeley')) return 'UC Berkeley';
+  if (text.includes('carnegie mellon') || text.includes('cmu')) return 'Carnegie Mellon';
+  if (text.includes('university')) return 'University';
+  
+  return 'Educational';
+}
+
 async function searchTopicVideos(topic: string, field: string, level: string, videoCount: number, focusAreas: string[] = []) {
   // Try YouTube API search first, fall back to curated content if API unavailable
   try {
