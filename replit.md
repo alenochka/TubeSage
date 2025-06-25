@@ -127,6 +127,7 @@ Changelog:
 - June 25, 2025: Implemented ReAct pattern Reflection Agent that evaluates response quality and provides intelligent suggestions for refined queries, related questions, YouTube search keywords, and actionable next steps
 - June 25, 2025: Fixed playlist processing endpoint integration and updated agent diagram to include all 5 agents in the multi-agent workflow
 - June 25, 2025: Resolved git configuration to connect project to GitHub repository https://github.com/alenochka/MultiAgentCollab2.git
+- June 25, 2025: Updated installation documentation to use uv package manager instead of pip for improved macOS compatibility and faster Python dependency management
 
 ## User Preferences
 
