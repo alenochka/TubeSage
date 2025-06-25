@@ -140,8 +140,6 @@ export default function CourseBuilderSimple({ onCourseCreated }: CourseBuilderPr
       // Reset form after success
       setTimeout(() => {
         setTopic("");
-        setField("");
-        setLevel("graduate");
         setVideoCount(6);
         setSearchResults([]);
         setShowResults(false);
@@ -176,7 +174,7 @@ export default function CourseBuilderSimple({ onCourseCreated }: CourseBuilderPr
       const response = await fetch('/api/academic/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic })
+        body: JSON.stringify({ topic, field: topic, level: "intermediate" })
       });
 
       if (!response.ok) {
@@ -254,19 +252,7 @@ export default function CourseBuilderSimple({ onCourseCreated }: CourseBuilderPr
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="level">Academic Level</Label>
-                  <select 
-                    value={level} 
-                    onChange={(e) => setLevel(e.target.value as any)}
-                    disabled={isSearching}
-                    className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <option value="undergraduate">Undergraduate</option>
-                    <option value="graduate">Graduate</option>
-                    <option value="doctoral">Doctoral</option>
-                  </select>
-                </div>
+
                 <div>
                   <Label htmlFor="videoCount">Number of Videos</Label>
                   <Input
