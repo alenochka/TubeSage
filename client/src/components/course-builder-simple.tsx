@@ -188,7 +188,7 @@ export default function CourseBuilderSimple({ onCourseCreated }: CourseBuilderPr
 
       const result = await response.json();
       
-      if (result.success && result.academic_videos) {
+      if (result.success && result.academic_videos && result.academic_videos.length > 0) {
         const academicResults = result.academic_videos.map((video: any) => ({
           youtubeId: video.youtube_id,
           title: video.title,
@@ -204,6 +204,7 @@ export default function CourseBuilderSimple({ onCourseCreated }: CourseBuilderPr
           university: video.university
         }));
         
+        console.log('Academic search results:', academicResults);
         setSearchResults(academicResults);
         setShowResults(true);
         
@@ -329,7 +330,12 @@ export default function CourseBuilderSimple({ onCourseCreated }: CourseBuilderPr
             // Results and Generation
             <>
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium">Found {searchResults.length} Videos</h3>
+                <h3 className="text-lg font-medium">
+                  Found {searchResults.length} Videos
+                  {searchResults.some((v: any) => v.isAcademic) && 
+                    <Badge className="ml-2 bg-blue-100 text-blue-800">Academic</Badge>
+                  }
+                </h3>
                 <Button variant="outline" onClick={resetSearch} disabled={isGenerating}>
                   New Search
                 </Button>
@@ -347,6 +353,11 @@ export default function CourseBuilderSimple({ onCourseCreated }: CourseBuilderPr
                         </h4>
                         <p className="text-xs text-muted-foreground mt-1">
                           {video.channelTitle} • {video.duration}
+                          {video.university && 
+                            <Badge className="ml-1 text-xs bg-green-100 text-green-800">
+                              {video.university}
+                            </Badge>
+                          }
                         </p>
                         <div className="mt-1 flex items-center gap-2">
                           {video.relevanceScore && (
