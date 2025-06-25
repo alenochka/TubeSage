@@ -35,30 +35,66 @@ class TranscriptFetcher(BaseAgent):
         self.log_action(f"Fetching transcript for video {youtube_id}")
         
         try:
-            # Fetch transcript using youtube-transcript-api
-            transcript_list = YouTubeTranscriptApi.get_transcript(youtube_id)
+            if not self.youtube_api:
+                raise ValueError("YouTube API not available")
             
-            # Process transcript data
-            processed_transcript = self._process_transcript(transcript_list)
+            # Get video metadata using official API
+            video_details = await self.youtube_api.get_video_details(youtube_id)
+            self.log_action(f"Retrieved video: {video_details['title']}")
             
-            # Get video metadata (title, duration) if API key is available
-            video_info = await self._get_video_info(youtube_id)
+            # Try to get captions if available
+            captions_data = None
+            if video_details.get('caption_available'):
+                self.log_action("Attempting to fetch captions...")
+                captions_data = await self.youtube_api.get_video_captions(youtube_id)
             
-            result = {
-                'youtube_id': youtube_id,
-                'transcript': processed_transcript,
-                'raw_transcript': transcript_list,
-                'video_info': video_info,
-                'total_duration': self._calculate_duration(transcript_list),
-                'word_count': len(processed_transcript.split())
-            }
+            if captions_data:
+                # Process captions into chunks
+                chunks = self._create_chunks_from_transcript(captions_data['transcript'])
+                
+                result = {
+                    "success": True,
+                    "youtube_id": youtube_id,
+                    "title": video_details['title'],
+                    "duration": video_details['duration'],
+                    "channel_title": video_details['channel_title'],
+                    "view_count": video_details['view_count'],
+                    "published_at": video_details['published_at'],
+                    "transcript": captions_data['transcript'],
+                    "full_text": captions_data['full_text'],
+                    "chunks": chunks,
+                    "source": "youtube_api_captions"
+                }
+            else:
+                # No captions - use description and metadata
+                description_chunks = self._create_chunks_from_description(
+                    video_details['description'], 
+                    video_details['title']
+                )
+                
+                result = {
+                    "success": True,
+                    "youtube_id": youtube_id,
+                    "title": video_details['title'],
+                    "duration": video_details['duration'],
+                    "channel_title": video_details['channel_title'],
+                    "view_count": video_details['view_count'],
+                    "published_at": video_details['published_at'],
+                    "transcript": [],
+                    "full_text": video_details['description'],
+                    "chunks": description_chunks,
+                    "source": "youtube_api_metadata"
+                }
             
-            self.log_action(f"Successfully fetched transcript for {youtube_id} ({result['word_count']} words)")
+            self.log_action(f"Successfully processed video with {len(result['chunks'])} chunks")
             return result
-            
+                
         except Exception as e:
-            self.log_action(f"Failed to fetch transcript for {youtube_id}: {str(e)}", "error")
-            raise
+            self.log_action(f"Failed to process video: {str(e)}", "error")
+            return {
+                "success": False,
+                "error": str(e)
+            }
     
     def _process_transcript(self, transcript_list) -> str:
         """Process raw transcript into clean text"""
