@@ -588,7 +588,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }, 30000); // Update every 30 seconds
 
-  // Channel processing endpoints
+  // Channel processing endpoints - fetch real videos from YouTube API
   app.post("/api/channels/videos", async (req, res) => {
     try {
       const { channelUrl } = req.body;
@@ -603,17 +603,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid channel URL format" });
       }
 
-      // Mock channel video fetching (in production, use YouTube Data API)
-      const mockVideos = generateMockChannelVideos(channelId);
+      console.log(`Fetching videos for channel: ${channelId}`);
+      
+      // Use YouTube API to get real channel videos
+      const channelVideos = await fetchChannelVideos(channelId);
       
       res.json({
         channelId,
-        videos: mockVideos,
-        totalCount: mockVideos.length
+        videos: channelVideos,
+        totalCount: channelVideos.length
       });
     } catch (error: any) {
       console.error("Error fetching channel videos:", error);
-      res.status(500).json({ error: "Failed to fetch channel videos" });
+      res.status(500).json({ error: `Failed to fetch channel videos: ${error.message}` });
     }
   });
 
@@ -1653,53 +1655,118 @@ function extractChannelId(url: string): string | null {
   return null;
 }
 
-function generateMockChannelVideos(channelId: string) {
-  // Only use real, existing YouTube videos to avoid transcript errors
-  // In production, this would use YouTube Data API to fetch actual channel videos
-  const realVideos = [
-    {
-      id: "m2SW35yaajE",
-      title: "Open Quantum Systems Theory of Ultra Weak UV Photon Emissions",
-      duration: "15:32",
-      publishedAt: "2024-03-15",
-      thumbnailUrl: "https://i.ytimg.com/vi/m2SW35yaajE/hqdefault.jpg",
-      url: "https://www.youtube.com/watch?v=m2SW35yaajE"
-    },
-    {
-      id: "mf6lkIipjF0", 
-      title: "Quantum Biology: From Photons to Physiology",
-      duration: "28:45",
-      publishedAt: "2024-02-20",
-      thumbnailUrl: "https://i.ytimg.com/vi/mf6lkIipjF0/hqdefault.jpg",
-      url: "https://www.youtube.com/watch?v=mf6lkIipjF0"
-    },
-    {
-      id: "9u7rIODg2YU",
-      title: "Quantum Biology Research Framework and Applications",
-      duration: "12:18",
-      publishedAt: "2024-01-10",
-      thumbnailUrl: "https://i.ytimg.com/vi/9u7rIODg2YU/hqdefault.jpg", 
-      url: "https://www.youtube.com/watch?v=9u7rIODg2YU"
-    },
-    {
-      id: "dQw4w9WgXcQ",
-      title: "Rick Astley - Never Gonna Give You Up (Official Video)",
-      duration: "3:33",
-      publishedAt: "2009-10-25",
-      thumbnailUrl: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
-      url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    },
-    {
-      id: "jNQXAC9IVRw",
-      title: "Me at the zoo",
-      duration: "0:19",
-      publishedAt: "2005-04-23",
-      thumbnailUrl: "https://i.ytimg.com/vi/jNQXAC9IVRw/hqdefault.jpg",
-      url: "https://www.youtube.com/watch?v=jNQXAC9IVRw"
-    }
-  ];
+// Fetch real videos from a YouTube channel using API
+async function fetchChannelVideos(channelId: string) {
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey) {
+    throw new Error("YouTube API key not configured");
+  }
 
-  return realVideos;
+  try {
+    // First, get the channel's uploads playlist ID
+    const channelUrl = `https://www.googleapis.com/youtube/v3/channels?` +
+      `part=contentDetails&` +
+      `${channelId.startsWith('UC') ? 'id' : 'forUsername'}=${channelId}&` +
+      `key=${apiKey}`;
+
+    const channelResponse = await fetch(channelUrl);
+    if (!channelResponse.ok) {
+      throw new Error(`YouTube API error: ${channelResponse.statusText}`);
+    }
+
+    const channelData = await channelResponse.json();
+    if (!channelData.items || channelData.items.length === 0) {
+      throw new Error("Channel not found");
+    }
+
+    const uploadsPlaylistId = channelData.items[0].contentDetails.relatedPlaylists.uploads;
+
+    // Now get videos from the uploads playlist (up to 50 videos)
+    const playlistUrl = `https://www.googleapis.com/youtube/v3/playlistItems?` +
+      `part=snippet&` +
+      `playlistId=${uploadsPlaylistId}&` +
+      `maxResults=50&` +
+      `key=${apiKey}`;
+
+    const playlistResponse = await fetch(playlistUrl);
+    if (!playlistResponse.ok) {
+      throw new Error(`YouTube playlist API error: ${playlistResponse.statusText}`);
+    }
+
+    const playlistData = await playlistResponse.json();
+    
+    if (!playlistData.items || playlistData.items.length === 0) {
+      return [];
+    }
+
+    // Get detailed video information
+    const videoIds = playlistData.items
+      .map((item: any) => item.snippet.resourceId.videoId)
+      .join(',');
+
+    const videosUrl = `https://www.googleapis.com/youtube/v3/videos?` +
+      `part=snippet,contentDetails,statistics&` +
+      `id=${videoIds}&` +
+      `key=${apiKey}`;
+
+    const videosResponse = await fetch(videosUrl);
+    if (!videosResponse.ok) {
+      throw new Error(`YouTube videos API error: ${videosResponse.statusText}`);
+    }
+
+    const videosData = await videosResponse.json();
+
+    // Format videos for the interface
+    const channelVideos = videosData.items
+      .filter((item: any) => {
+        // Filter out shorts and very short videos
+        const duration = parseDuration(item.contentDetails.duration);
+        return duration >= 60; // At least 1 minute
+      })
+      .map((item: any) => ({
+        id: item.id,
+        title: item.snippet.title,
+        duration: formatDuration(item.contentDetails.duration),
+        publishedAt: item.snippet.publishedAt.split('T')[0],
+        thumbnailUrl: item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url,
+        url: `https://www.youtube.com/watch?v=${item.id}`,
+        viewCount: parseInt(item.statistics.viewCount || '0'),
+        description: item.snippet.description?.substring(0, 200) + '...' || ''
+      }));
+
+    console.log(`Found ${channelVideos.length} videos for channel ${channelId}`);
+    return channelVideos;
+
+  } catch (error) {
+    console.error('Error fetching channel videos:', error);
+    throw error;
+  }
+}
+
+// Helper function to parse ISO 8601 duration
+function parseDuration(duration: string): number {
+  const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+  if (!match) return 0;
+  
+  const hours = parseInt(match[1]?.replace('H', '') || '0');
+  const minutes = parseInt(match[2]?.replace('M', '') || '0');
+  const seconds = parseInt(match[3]?.replace('S', '') || '0');
+  
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
+// Helper function to format duration
+function formatDuration(isoDuration: string): string {
+  const totalSeconds = parseDuration(isoDuration);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  } else {
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }
 }
 
 function extractVideoId(url: string): string | null {

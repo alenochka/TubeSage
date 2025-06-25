@@ -126,6 +126,7 @@ Changelog:
 - June 25, 2025: Implemented comprehensive graduate-level course builder with intelligent YouTube video search, automatic course structure generation, and modular learning progression
 - June 25, 2025: Added Academic Video Scraper agent that searches university websites (MIT, Stanford, Harvard) for high-quality educational content, ranks by academic credibility, and provides curated course material selection interface
 - June 25, 2025: Fixed academic search to use only verified real YouTube video IDs instead of placeholder/mock videos - now returns authentic MIT, Stanford, and Harvard content that users can actually watch
+- June 25, 2025: Enhanced YouTube channel processing to fetch up to 50 real videos per channel using YouTube API instead of limiting to 5 hardcoded videos
 
 ## User Preferences
 
