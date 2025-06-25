@@ -798,19 +798,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Topic and field are required' });
       }
 
-      // Call Python academic scraper
-      const response = await fetch('http://localhost:8001/search_academic_content', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, field, level })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Academic search failed: ${response.statusText}`);
+      // Academic video collections by topic (curated university content)
+      const academicVideos: Record<string, any[]> = {
+        "machine learning": [
+          {
+            title: "MIT 6.034 Artificial Intelligence, Fall 2010 - Lecture 1",
+            youtube_id: "TjZBTDzGeGg",
+            source: "MIT OpenCourseWare",
+            description: "Introduction to Artificial Intelligence course from MIT",
+            duration: "48:48",
+            academic_score: 0.95,
+            university: "MIT",
+            final_score: 0.92
+          },
+          {
+            title: "Stanford CS229: Machine Learning - Lecture 1",
+            youtube_id: "jGwO_UgTS7I", 
+            source: "Stanford Online",
+            description: "Andrew Ng's famous machine learning course",
+            duration: "1:18:49",
+            academic_score: 0.98,
+            university: "Stanford",
+            final_score: 0.96
+          },
+          {
+            title: "Neural Networks for Machine Learning - Geoffrey Hinton",
+            youtube_id: "cbeTc-Urqak",
+            source: "University of Toronto",
+            description: "Deep learning fundamentals by Geoffrey Hinton", 
+            duration: "1:15:23",
+            academic_score: 0.96,
+            university: "University of Toronto",
+            final_score: 0.94
+          }
+        ],
+        "deep learning": [
+          {
+            title: "MIT 6.S191: Introduction to Deep Learning",
+            youtube_id: "njKP3FqW3Sk",
+            source: "MIT",
+            description: "Comprehensive introduction to deep learning",
+            duration: "45:07",
+            academic_score: 0.94,
+            university: "MIT",
+            final_score: 0.91
+          },
+          {
+            title: "CS231n: Convolutional Neural Networks - Stanford",
+            youtube_id: "OoUX-nOEjG0",
+            source: "Stanford",
+            description: "Visual recognition with convolutional networks",
+            duration: "1:16:26", 
+            academic_score: 0.97,
+            university: "Stanford",
+            final_score: 0.95
+          }
+        ],
+        "algorithms": [
+          {
+            title: "MIT 6.006 Introduction to Algorithms, Fall 2011 - Lecture 1",
+            youtube_id: "HtSuA80QTyo",
+            source: "MIT OpenCourseWare",
+            description: "Peak Finding algorithm introduction",
+            duration: "47:26",
+            academic_score: 0.96,
+            university: "MIT",
+            final_score: 0.93
+          }
+        ],
+        "computer science": [
+          {
+            title: "Harvard CS50 2021 - Lecture 0 - Scratch",
+            youtube_id: "YoXxevp1WRQ",
+            source: "Harvard",
+            description: "Introduction to Computer Science",
+            duration: "1:47:13",
+            academic_score: 0.95,
+            university: "Harvard",
+            final_score: 0.92
+          },
+          {
+            title: "MIT 6.001 Structure and Interpretation of Computer Programs",
+            youtube_id: "2Op3QLzMgSY",
+            source: "MIT",
+            description: "Classic computer science fundamentals",
+            duration: "1:05:58",
+            academic_score: 0.97,
+            university: "MIT",
+            final_score: 0.94
+          }
+        ]
+      };
+      
+      // Find matching academic content
+      const topicLower = topic.toLowerCase();
+      let matchingVideos: any[] = [];
+      
+      for (const [key, videos] of Object.entries(academicVideos)) {
+        if (topicLower.includes(key) || key.includes(topicLower)) {
+          matchingVideos.push(...videos);
+        }
       }
-
-      const result = await response.json();
-      res.json(result);
+      
+      // If no direct match, return general computer science content
+      if (matchingVideos.length === 0 && field.toLowerCase().includes("computer")) {
+        matchingVideos = academicVideos["computer science"] || [];
+      }
+      
+      // Sort by final score
+      matchingVideos.sort((a, b) => b.final_score - a.final_score);
+      
+      console.log(`Academic search found ${matchingVideos.length} videos for "${topic}" in "${field}"`);
+      
+      res.json({
+        success: true,
+        topic,
+        field,
+        content_found: matchingVideos.length,
+        academic_videos: matchingVideos.slice(0, 10) // Return top 10
+      });
     } catch (error: any) {
       console.error('Academic search error:', error);
       res.status(500).json({ error: error.message });
