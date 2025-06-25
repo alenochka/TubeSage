@@ -781,16 +781,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Extract channel identifier from URL
-      const channelId = extractChannelId(channelUrl);
-      if (!channelId) {
+      const channelHandle = extractChannelId(channelUrl);
+      if (!channelHandle) {
         return res.status(400).json({ error: "Invalid channel URL format" });
       }
 
+      // Get the actual channel ID from the handle/username
+      const actualChannelId = await resolveChannelId(channelHandle);
+      if (!actualChannelId) {
+        return res.status(404).json({ error: "Channel not found" });
+      }
+
       // Fetch real videos from the channel using YouTube Data API
-      const channelVideos = await fetchRealChannelVideos(channelId, 50);
+      const channelVideos = await fetchRealChannelVideos(actualChannelId, 50);
       
       res.json({
-        channelId,
+        channelId: actualChannelId,
         videos: channelVideos,
         totalCount: channelVideos.length
       });
@@ -872,6 +878,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
   return httpServer;
 }
 
+async function resolveChannelId(channelHandle: string): Promise<string | null> {
+  try {
+    const apiKey = process.env.YOUTUBE_API_KEY;
+    if (!apiKey) {
+      throw new Error("YouTube API key not configured");
+    }
+
+    // If it's already a channel ID, return it
+    if (channelHandle.startsWith('UC')) {
+      return channelHandle;
+    }
+
+    // Try search API for handles and usernames
+    const searchUrl = `https://www.googleapis.com/youtube/v3/search?q=${channelHandle}&type=channel&key=${apiKey}&part=id&maxResults=1`;
+    const searchResponse = await fetch(searchUrl);
+    
+    if (searchResponse.ok) {
+      const searchData = await searchResponse.json();
+      if (searchData.items && searchData.items.length > 0) {
+        return searchData.items[0].id.channelId;
+      }
+    }
+
+    // Try forUsername as fallback
+    const channelUrl = `https://www.googleapis.com/youtube/v3/channels?forUsername=${channelHandle}&key=${apiKey}&part=id`;
+    const channelResponse = await fetch(channelUrl);
+    
+    if (channelResponse.ok) {
+      const channelData = await channelResponse.json();
+      if (channelData.items && channelData.items.length > 0) {
+        return channelData.items[0].id;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error resolving channel ID:', error);
+    return null;
+  }
+}
+
 async function fetchRealChannelVideos(channelId: string, maxResults: number = 50) {
   try {
     const apiKey = process.env.YOUTUBE_API_KEY;
@@ -879,17 +926,8 @@ async function fetchRealChannelVideos(channelId: string, maxResults: number = 50
       throw new Error("YouTube API key not configured");
     }
 
-    // First, get the channel's upload playlist ID
-    // Try different API endpoints based on channel identifier type
-    let channelUrl;
-    if (channelId.startsWith('UC')) {
-      // Direct channel ID
-      channelUrl = `https://www.googleapis.com/youtube/v3/channels?id=${channelId}&key=${apiKey}&part=contentDetails`;
-    } else {
-      // Username or handle - try forUsername first
-      channelUrl = `https://www.googleapis.com/youtube/v3/channels?forUsername=${channelId}&key=${apiKey}&part=contentDetails`;
-    }
-    
+    // Get the channel's upload playlist ID
+    const channelUrl = `https://www.googleapis.com/youtube/v3/channels?id=${channelId}&key=${apiKey}&part=contentDetails`;
     const channelResponse = await fetch(channelUrl);
     
     if (!channelResponse.ok) {
@@ -899,27 +937,6 @@ async function fetchRealChannelVideos(channelId: string, maxResults: number = 50
     const channelData = await channelResponse.json();
     
     if (!channelData.items || channelData.items.length === 0) {
-      // If forUsername failed, try search API for @handles
-      if (!channelId.startsWith('UC')) {
-        const searchUrl = `https://www.googleapis.com/youtube/v3/search?q=${channelId}&type=channel&key=${apiKey}&part=id&maxResults=1`;
-        const searchResponse = await fetch(searchUrl);
-        
-        if (searchResponse.ok) {
-          const searchData = await searchResponse.json();
-          if (searchData.items && searchData.items.length > 0) {
-            const foundChannelId = searchData.items[0].id.channelId;
-            // Retry with found channel ID
-            const retryUrl = `https://www.googleapis.com/youtube/v3/channels?id=${foundChannelId}&key=${apiKey}&part=contentDetails`;
-            const retryResponse = await fetch(retryUrl);
-            if (retryResponse.ok) {
-              const retryData = await retryResponse.json();
-              if (retryData.items && retryData.items.length > 0) {
-                return await fetchChannelVideosFromPlaylist(retryData.items[0].contentDetails.relatedPlaylists.uploads, apiKey, maxResults);
-              }
-            }
-          }
-        }
-      }
       throw new Error("Channel not found");
     }
     
@@ -928,7 +945,7 @@ async function fetchRealChannelVideos(channelId: string, maxResults: number = 50
     
   } catch (error) {
     console.error('Error fetching real channel videos:', error);
-    throw error; // Don't fallback to sample videos, let the error propagate
+    throw error;
   }
 }
 
