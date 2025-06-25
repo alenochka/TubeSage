@@ -150,7 +150,6 @@ except Exception as e:
                 level: "warning"
               });
               
-              resolve({ status: "transcript_blocked" });
               return;
             }
           } else {
@@ -167,7 +166,6 @@ except Exception as e:
               level: "warning"
             });
             
-            resolve({ status: "transcript_blocked" });
             return;
           }
         } catch (error) {

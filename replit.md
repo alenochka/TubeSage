@@ -131,6 +131,7 @@ Changelog:
 - June 25, 2025: Implemented advanced transcript extraction with multiple fallback methods to work around YouTube IP blocking - uses header rotation, alternative endpoints, and intelligent retry mechanisms
 - June 25, 2025: Enhanced IP spoofing with aggressive session manipulation and residential IP simulation for real transcript extraction
 - June 25, 2025: Simplified Course Builder UI by removing "Graduate" title and academic field/level selectors per user request
+- June 25, 2025: Fixed resolve error in video processing and implemented advanced proxy-based transcript extraction with TOR-like IP rotation to bypass YouTube's cloud provider blocking
 
 ## User Preferences
 
