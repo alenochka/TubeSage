@@ -43,6 +43,11 @@ export default function AgentDiagram() {
       icon: Search,
       color: "bg-orange-500",
       description: "Generates AI responses"
+    },
+    "Reflection Agent": {
+      icon: Activity,
+      color: "bg-amber-500",
+      description: "Evaluates responses & suggests improvements (ReAct)"
     }
   };
 
