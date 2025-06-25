@@ -172,6 +172,65 @@ export default function CourseBuilderSimple({ onCourseCreated }: CourseBuilderPr
     setGenerationProgress(0);
   };
 
+  const searchAcademicContent = async () => {
+    setIsSearching(true);
+    
+    try {
+      const response = await fetch('/api/academic/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, field, level })
+      });
+
+      if (!response.ok) {
+        throw new Error('Academic search failed');
+      }
+
+      const result = await response.json();
+      
+      if (result.success && result.academic_videos) {
+        const academicResults = result.academic_videos.map((video: any) => ({
+          youtubeId: video.youtube_id,
+          title: video.title,
+          duration: video.duration,
+          channelTitle: video.source,
+          publishedAt: new Date().toISOString(),
+          relevanceScore: video.final_score,
+          theoreticalDepth: video.academic_score,
+          practicalValue: video.academic_score,
+          keyTopics: [topic, field],
+          field: field.toLowerCase(),
+          isAcademic: true,
+          university: video.university
+        }));
+        
+        setSearchResults(academicResults);
+        setShowResults(true);
+        
+        toast({
+          title: "Academic Content Found",
+          description: `Found ${academicResults.length} high-quality academic videos from universities`
+        });
+      } else {
+        toast({
+          title: "No Academic Content Found", 
+          description: "No academic videos found for this topic",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Academic search error:', error);
+      toast({
+        title: "Search Failed",
+        description: "Academic search is not yet available. Using regular YouTube search instead.",
+        variant: "destructive"
+      });
+      await handleSearch();
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -256,7 +315,7 @@ export default function CourseBuilderSimple({ onCourseCreated }: CourseBuilderPr
                 </Button>
                 
                 <Button 
-                  onClick={() => searchAcademicContent()}
+                  onClick={searchAcademicContent}
                   variant="outline"
                   disabled={isSearching || !topic || !field}
                   className="w-full"
