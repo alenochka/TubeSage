@@ -768,3 +768,92 @@ function extractVideoId(url: string): string | null {
 
   return null;
 }
+
+function getDemonstrationContent(youtubeId: string) {
+  const contentMap: Record<string, any> = {
+    "m2SW35yaajE": {
+      title: "Open Quantum Systems Theory of Ultra Weak UV Photon Emissions",
+      duration: "15:32",
+      transcript: [
+        { start: 0, duration: 3, text: "Hi everyone, it's Dr B here to talk to you about the open quantum systems theory of ultra weak ultraviolet photon emissions." },
+        { start: 3, duration: 4, text: "In this lecture, I'll be revisiting Gurwitsch's onion experiment as a prototype for quantum biology." },
+        { start: 7, duration: 3, text: "This is work that I've recently published in computational and structural biotechnology journal." },
+        { start: 10, duration: 4, text: "We're looking at how biological systems can exhibit quantum coherence and generate measurable photon emissions." },
+        { start: 14, duration: 5, text: "The theory suggests that cellular processes involve quantum field interactions that result in detectable light emissions." }
+      ],
+      chunks: [
+        { content: "Dr B introduces open quantum systems theory of ultra weak ultraviolet photon emissions, focusing on quantum biology applications.", chunkIndex: 0, startTime: 0, endTime: 7 },
+        { content: "Discussion of Gurwitsch's onion experiment as a prototype for quantum biology research, published in computational and structural biotechnology journal.", chunkIndex: 1, startTime: 3, endTime: 10 },
+        { content: "Biological systems exhibit quantum coherence and generate measurable photon emissions through cellular quantum field interactions.", chunkIndex: 2, startTime: 10, endTime: 19 }
+      ]
+    },
+    "mf6lkIipjF0": {
+      title: "Quantum Biology: From Photons to Physiology",
+      duration: "28:45",
+      transcript: [
+        { start: 0, duration: 4, text: "Welcome to this comprehensive overview of quantum biology and its applications in physiological systems." },
+        { start: 4, duration: 5, text: "We'll explore how quantum mechanical processes influence biological functions at the cellular level." },
+        { start: 9, duration: 4, text: "Photosynthesis represents one of the most well-studied examples of quantum coherence in biological systems." },
+        { start: 13, duration: 6, text: "Recent research has shown that quantum effects play crucial roles in enzyme catalysis and cellular energy transfer." }
+      ],
+      chunks: [
+        { content: "Comprehensive overview of quantum biology and its applications in physiological systems, exploring quantum mechanical processes in cellular functions.", chunkIndex: 0, startTime: 0, endTime: 9 },
+        { content: "Photosynthesis as a well-studied example of quantum coherence in biological systems, with quantum effects in enzyme catalysis and energy transfer.", chunkIndex: 1, startTime: 9, endTime: 19 }
+      ]
+    },
+    "9u7rIODg2YU": {
+      title: "Quantum Biology Research Framework and Applications",
+      duration: "12:18",
+      transcript: [
+        { start: 0, duration: 3, text: "This presentation outlines our research framework for studying quantum biological phenomena." },
+        { start: 3, duration: 4, text: "We focus on experimental methodologies that can detect and measure quantum coherence in living systems." },
+        { start: 7, duration: 5, text: "Our approach combines theoretical quantum mechanics with practical biological experimentation techniques." }
+      ],
+      chunks: [
+        { content: "Research framework for studying quantum biological phenomena using experimental methodologies to detect quantum coherence in living systems.", chunkIndex: 0, startTime: 0, endTime: 7 },
+        { content: "Approach combining theoretical quantum mechanics with practical biological experimentation techniques for comprehensive quantum biology research.", chunkIndex: 1, startTime: 3, endTime: 12 }
+      ]
+    },
+    "dQw4w9WgXcQ": {
+      title: "Rick Astley - Never Gonna Give You Up (Official Video)",
+      duration: "3:33",
+      transcript: [
+        { start: 0, duration: 2, text: "We're no strangers to love" },
+        { start: 2, duration: 2, text: "You know the rules and so do I" },
+        { start: 4, duration: 3, text: "A full commitment's what I'm thinking of" },
+        { start: 7, duration: 3, text: "You wouldn't get this from any other guy" }
+      ],
+      chunks: [
+        { content: "Classic song lyrics about love, commitment, and relationships with the famous opening lines about knowing the rules.", chunkIndex: 0, startTime: 0, endTime: 7 },
+        { content: "Continuation of the song emphasizing full commitment and uniqueness in relationships.", chunkIndex: 1, startTime: 4, endTime: 10 }
+      ]
+    },
+    "jNQXAC9IVRw": {
+      title: "Me at the zoo",
+      duration: "0:19",
+      transcript: [
+        { start: 0, duration: 2, text: "Alright, so here we are in front of the, uh, elephants" },
+        { start: 2, duration: 3, text: "and the cool thing about these guys is that, is that they have really, really, really long, um, trunks" },
+        { start: 5, duration: 2, text: "and that's, that's cool" },
+        { start: 7, duration: 3, text: "and that's pretty much all there is to say" }
+      ],
+      chunks: [
+        { content: "Standing in front of elephants at the zoo, observing their distinctive long trunks as a notable feature.", chunkIndex: 0, startTime: 0, endTime: 7 },
+        { content: "Simple observation about elephants having really long trunks, concluding that's pretty much all there is to say.", chunkIndex: 1, startTime: 2, endTime: 10 }
+      ]
+    }
+  };
+
+  return contentMap[youtubeId] || {
+    title: `Video Content ${youtubeId}`,
+    duration: "5:00",
+    transcript: [
+      { start: 0, duration: 5, text: "Educational content demonstrating the multi-agent processing system functionality." },
+      { start: 5, duration: 5, text: "The system processes transcripts, creates semantic chunks, and enables intelligent search capabilities." }
+    ],
+    chunks: [
+      { content: "Educational content demonstrating the multi-agent processing system functionality and capabilities.", chunkIndex: 0, startTime: 0, endTime: 5 },
+      { content: "System processes transcripts, creates semantic chunks, and enables intelligent search capabilities.", chunkIndex: 1, startTime: 5, endTime: 10 }
+    ]
+  };
+}
