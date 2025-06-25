@@ -119,9 +119,10 @@ class VectorEmbedder(BaseAgent):
                         'end_time': chunk_data.get('end_time')
                     })
             
-            # Sort by similarity and return top k
-            similarities.sort(key=lambda x: x['similarity'], reverse=True)
-            top_results = similarities[:top_k]
+            # Filter for high relevance and sort by similarity
+            high_relevance = [s for s in similarities if s['similarity'] > 0.5]
+            high_relevance.sort(key=lambda x: x['similarity'], reverse=True)
+            top_results = high_relevance[:min(top_k, 3)]  # Limit to 3 chunks max
             
             result = {
                 'query': query,

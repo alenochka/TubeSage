@@ -401,8 +401,8 @@ async function processQueryWithAI(question: string) {
         
         for (const chunk of chunksToUse) {
           // Limit chunk content to prevent token overflow
-          const limitedContent = chunk.content.length > 800 ? 
-            chunk.content.substring(0, 800) + "..." : chunk.content;
+          const limitedContent = chunk.content.length > 600 ? 
+            chunk.content.substring(0, 600) + "..." : chunk.content;
           
           contextText += `\n\nFrom video "${video.title}" at ${chunk.startTime}: ${limitedContent}`;
           
@@ -431,18 +431,16 @@ async function processQueryWithAI(question: string) {
       console.log(`Context length: ${contextText.length} characters`);
       console.log(`Context preview: ${contextText.substring(0, 200)}...`);
       
-      // Additional safety check for context length
-      if (contextText.length > 40000) { // ~10k tokens rough estimate
-        contextText = contextText.substring(0, 40000) + "\n\n[Context truncated to fit token limits]";
+      // Conservative context length limit to prevent token overflow
+      if (contextText.length > 15000) { // ~3.5k tokens max to stay well under limit
+        contextText = contextText.substring(0, 15000) + "\n\n[Context truncated for API limits]";
         console.log("Context truncated to prevent token overflow");
       }
       
       const systemPrompt = contextText ? 
-        `You are analyzing YouTube video transcripts. You must answer questions based ONLY on the transcript content provided below. If the transcript mentions the person or topic, provide a detailed answer with direct quotes. If not mentioned, clearly state it's not in the transcripts.
+        `You are analyzing YouTube video transcripts. Answer questions based on the transcript content provided. Be concise and quote relevant sections.
 
-${contextText}
-
-IMPORTANT: Use the transcript content above to answer questions. Quote directly from it when possible.` :
+${contextText}` :
         "You are a helpful AI assistant. No YouTube video transcripts are currently available to analyze.";
       
       const userPrompt = contextText ? 
@@ -463,7 +461,7 @@ Answer using the transcript content provided. Include direct quotes and referenc
             content: userPrompt
           }
         ],
-        max_tokens: 600,
+        max_tokens: 500,
         temperature: 0.3,
       });
 
