@@ -137,3 +137,4 @@ Changelog:
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
+Navigation preferences: Agent Activity Diagram should replace Agent Orchestration section completely.

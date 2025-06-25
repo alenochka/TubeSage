@@ -50,9 +50,9 @@ export default function Sidebar() {
             <Database className="w-5 h-5" />
             <span>Vector Database</span>
           </a>
-          <a href="#analytics" className="flex items-center space-x-3 px-3 py-2 text-neutral-500 hover:bg-neutral-100 rounded-lg">
+          <a href="#agent-orchestration" className="flex items-center space-x-3 px-3 py-2 text-neutral-500 hover:bg-neutral-100 rounded-lg">
             <TrendingUp className="w-5 h-5" />
-            <span>Analytics</span>
+            <span>Agent Orchestration</span>
           </a>
         </nav>
 
