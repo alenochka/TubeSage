@@ -3,14 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { GraduationCap, Search, Video, BookOpen, Clock, Users } from "lucide-react";
+import { GraduationCap, Search, Video, BookOpen } from "lucide-react";
 
 interface CourseBuilderProps {
   onCourseCreated?: (course: any) => void;
@@ -273,16 +271,15 @@ export default function CourseBuilder({ onCourseCreated }: CourseBuilderProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="level">Academic Level</Label>
-              <Select value={level} onValueChange={(value: any) => setLevel(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="undergraduate">Undergraduate</SelectItem>
-                  <SelectItem value="graduate">Graduate</SelectItem>
-                  <SelectItem value="doctoral">Doctoral</SelectItem>
-                </SelectContent>
-              </Select>
+              <select 
+                value={level} 
+                onChange={(e) => setLevel(e.target.value as any)}
+                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="undergraduate">Undergraduate</option>
+                <option value="graduate">Graduate</option>
+                <option value="doctoral">Doctoral</option>
+              </select>
             </div>
             <div>
               <Label htmlFor="videoCount">Number of Videos</Label>

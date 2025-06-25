@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { BookOpen, Clock, Video, Users, Search, Filter } from "lucide-react";
@@ -82,30 +82,28 @@ export default function CourseLibrary({ onCourseSelect }: CourseLibraryProps) {
               </div>
             </div>
             <div className="flex gap-2">
-              <Select value={levelFilter} onValueChange={setLevelFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="All Levels" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Levels</SelectItem>
-                  <SelectItem value="undergraduate">Undergraduate</SelectItem>
-                  <SelectItem value="graduate">Graduate</SelectItem>
-                  <SelectItem value="doctoral">Doctoral</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={fieldFilter} onValueChange={setFieldFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="All Fields" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Fields</SelectItem>
-                  <SelectItem value="computer science">Computer Science</SelectItem>
-                  <SelectItem value="physics">Physics</SelectItem>
-                  <SelectItem value="biology">Biology</SelectItem>
-                  <SelectItem value="mathematics">Mathematics</SelectItem>
-                  <SelectItem value="engineering">Engineering</SelectItem>
-                </SelectContent>
-              </Select>
+              <select 
+                value={levelFilter} 
+                onChange={(e) => setLevelFilter(e.target.value)}
+                className="w-40 flex h-10 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              >
+                <option value="all">All Levels</option>
+                <option value="undergraduate">Undergraduate</option>
+                <option value="graduate">Graduate</option>
+                <option value="doctoral">Doctoral</option>
+              </select>
+              <select 
+                value={fieldFilter} 
+                onChange={(e) => setFieldFilter(e.target.value)}
+                className="w-40 flex h-10 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              >
+                <option value="all">All Fields</option>
+                <option value="computer science">Computer Science</option>
+                <option value="physics">Physics</option>
+                <option value="biology">Biology</option>
+                <option value="mathematics">Mathematics</option>
+                <option value="engineering">Engineering</option>
+              </select>
             </div>
           </div>
         </CardContent>
