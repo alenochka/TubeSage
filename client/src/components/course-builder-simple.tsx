@@ -353,12 +353,12 @@ export default function CourseBuilderSimple({ onCourseCreated }: CourseBuilderPr
                         </h4>
                         <p className="text-xs text-muted-foreground mt-1">
                           {video.channelTitle} • {video.duration}
-                          {video.university && 
-                            <Badge className="ml-1 text-xs bg-green-100 text-green-800">
-                              {video.university}
-                            </Badge>
-                          }
                         </p>
+                        {video.university && 
+                          <Badge className="mt-1 text-xs bg-green-100 text-green-800">
+                            {video.university}
+                          </Badge>
+                        }
                         <div className="mt-1 flex items-center gap-2">
                           {video.relevanceScore && (
                             <Badge variant="secondary" className="text-xs">
