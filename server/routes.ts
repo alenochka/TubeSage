@@ -796,10 +796,10 @@ async function searchTopicVideos(topic: string, field: string, level: string, vi
   // Try YouTube API search first, fall back to curated content if API unavailable
   try {
     const { searchYouTubeVideos } = await import('./youtube-api');
-    const youtubeResults = await searchYouTubeVideos(topic, field, level, Math.max(videoCount * 3, 30)); // Get more results to filter from
+    const youtubeResults = await searchYouTubeVideos(topic, field, level, Math.max(videoCount * 4, 40)); // Get even more results to filter from
     
-    if (youtubeResults.length > 0) {
-      console.log(`YouTube API found ${youtubeResults.length} videos for "${topic} ${field}"`);
+    if (youtubeResults.length >= videoCount) {
+      console.log(`YouTube API found ${youtubeResults.length} valid videos for "${topic} ${field}"`);
       
       // Convert YouTube API results to our format
       const convertedResults = youtubeResults.slice(0, videoCount).map(video => ({
@@ -815,8 +815,14 @@ async function searchTopicVideos(topic: string, field: string, level: string, vi
         field: field.toLowerCase()
       }));
       
-      console.log(`Returning ${convertedResults.length} filtered videos`);
+      console.log(`Returning ${convertedResults.length} verified watchable videos:`);
+      convertedResults.forEach(video => {
+        console.log(`- ${video.title} (${video.youtubeId}) - ${video.duration}`);
+      });
+      
       return convertedResults;
+    } else {
+      console.log(`YouTube API found only ${youtubeResults.length} videos, falling back to curated content`);
     }
   } catch (error: any) {
     console.log('YouTube API error, using curated content:', error.message);

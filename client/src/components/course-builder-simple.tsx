@@ -277,13 +277,21 @@ export default function CourseBuilderSimple({ onCourseCreated }: CourseBuilderPr
                         <p className="text-xs text-muted-foreground mt-1">
                           {video.channelTitle} • {video.duration}
                         </p>
-                        {video.relevanceScore && (
-                          <div className="mt-1">
+                        <div className="mt-1 flex items-center gap-2">
+                          {video.relevanceScore && (
                             <Badge variant="secondary" className="text-xs">
                               {Math.round(video.relevanceScore * 100)}% relevant
                             </Badge>
-                          </div>
-                        )}
+                          )}
+                          <a 
+                            href={`https://www.youtube.com/watch?v=${video.youtubeId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:text-blue-800 underline"
+                          >
+                            Watch on YouTube
+                          </a>
+                        </div>
                       </div>
                     </div>
                   </div>

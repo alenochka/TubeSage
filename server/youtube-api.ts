@@ -30,7 +30,7 @@ export async function searchYouTubeVideos(
     const educationalKeywords = getEducationalKeywords(level);
     const searchQuery = `${topic} ${field} ${educationalKeywords.join(' ')}`;
     
-    // 2. Search for videos
+    // 2. Search for videos with specific educational filters
     const searchUrl = `https://www.googleapis.com/youtube/v3/search?` +
       `part=snippet&` +
       `q=${encodeURIComponent(searchQuery)}&` +
@@ -38,8 +38,10 @@ export async function searchYouTubeVideos(
       `videoDuration=medium&` + // 4-20 minutes for educational content
       `videoDefinition=any&` +
       `videoEmbeddable=true&` + // Only embeddable videos
+      `videoLicense=any&` + // Include all license types
       `order=relevance&` +
       `maxResults=${maxResults}&` +
+      `safeSearch=none&` + // Don't filter out educational content
       `key=${apiKey}`;
     
     const searchResponse = await fetch(searchUrl);
@@ -70,14 +72,38 @@ export async function searchYouTubeVideos(
     // 4. Process and rank results - filter out unavailable videos
     const results: YouTubeSearchResult[] = detailsData.items
       .filter((item: any) => {
-        // Only include videos that are available and have content
-        return item.contentDetails &&
-               item.contentDetails.duration &&
-               item.contentDetails.duration !== 'PT0S' && // Not empty/zero duration
-               item.snippet &&
-               item.snippet.title &&
-               !item.snippet.title.toLowerCase().includes('deleted') &&
-               !item.snippet.title.toLowerCase().includes('unavailable');
+        // Strict filtering for actually watchable videos
+        if (!item.contentDetails || !item.contentDetails.duration || item.contentDetails.duration === 'PT0S') {
+          return false;
+        }
+        
+        if (!item.snippet || !item.snippet.title) {
+          return false;
+        }
+        
+        // Check video status if available
+        if (item.status) {
+          if (item.status.uploadStatus !== 'processed' || 
+              item.status.privacyStatus !== 'public' ||
+              item.status.embeddable === false) {
+            return false;
+          }
+        }
+        
+        // Filter out problematic titles
+        const title = item.snippet.title.toLowerCase();
+        const problematicKeywords = ['deleted', 'unavailable', 'private', 'removed', 'restricted'];
+        if (problematicKeywords.some(keyword => title.includes(keyword))) {
+          return false;
+        }
+        
+        // Ensure minimum duration (at least 2 minutes for educational content)
+        const duration = parseDuration(item.contentDetails.duration);
+        if (duration < 120) { // Less than 2 minutes
+          return false;
+        }
+        
+        return true;
       })
       .map((item: any) => ({
         youtubeId: item.id,
@@ -111,12 +137,12 @@ export async function searchYouTubeVideos(
 
 function getEducationalKeywords(level: string): string[] {
   const keywords = {
-    undergraduate: ["introduction", "basics", "fundamentals", "tutorial", "course"],
-    graduate: ["advanced", "research", "analysis", "theory", "methodology"],
-    doctoral: ["research", "advanced theory", "dissertation", "PhD", "academic"]
+    undergraduate: ["tutorial", "introduction", "explained", "course", "lecture"],
+    graduate: ["lecture", "course", "university", "explained", "tutorial"],
+    doctoral: ["lecture", "university", "research", "academic", "course"]
   };
   
-  return keywords[level as keyof typeof keywords] || keywords.undergraduate;
+  return keywords[level as keyof typeof keywords] || keywords.graduate;
 }
 
 export async function getVideoTranscript(videoId: string): Promise<string | null> {
