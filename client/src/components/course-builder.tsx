@@ -59,10 +59,19 @@ export default function CourseBuilder({ onCourseCreated }: CourseBuilderProps) {
 
   const searchVideosMutation = useMutation({
     mutationFn: async (searchData: any) => {
-      return await apiRequest(`/api/courses/search`, {
-        method: "POST",
+      const response = await fetch('/api/courses/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(searchData)
       });
+      
+      if (!response.ok) {
+        throw new Error(`Search failed: ${response.statusText}`);
+      }
+      
+      return response.json();
     },
     onSuccess: (data) => {
       setSearchResults(data.videos || []);
