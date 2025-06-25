@@ -890,32 +890,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ]
       };
       
-      // Find matching academic content
+      // Find matching academic content with better topic matching
       const topicLower = topic.toLowerCase();
+      const fieldLower = field.toLowerCase();
       let matchingVideos: any[] = [];
       
-      for (const [key, videos] of Object.entries(academicVideos)) {
-        if (topicLower.includes(key) || key.includes(topicLower)) {
-          matchingVideos.push(...videos);
-        }
+      // Check for machine learning related topics
+      if (topicLower.includes("machine") || topicLower.includes("learning") || 
+          topicLower.includes("ml") || topicLower.includes("ai")) {
+        matchingVideos.push(...academicVideos["machine learning"]);
       }
       
-      // If no direct match, return general computer science content
-      if (matchingVideos.length === 0 && field.toLowerCase().includes("computer")) {
-        matchingVideos = academicVideos["computer science"] || [];
+      // Check for deep learning topics
+      if (topicLower.includes("deep") || topicLower.includes("neural") ||
+          topicLower.includes("network")) {
+        matchingVideos.push(...academicVideos["deep learning"]);
       }
       
-      // Sort by final score
-      matchingVideos.sort((a, b) => b.final_score - a.final_score);
+      // Check for algorithms topics
+      if (topicLower.includes("algorithm") || topicLower.includes("data structure")) {
+        matchingVideos.push(...academicVideos["algorithms"]);
+      }
       
-      console.log(`Academic search found ${matchingVideos.length} videos for "${topic}" in "${field}"`);
+      // For general computer science or if no specific matches
+      if (fieldLower.includes("computer") || fieldLower.includes("cs")) {
+        matchingVideos.push(...academicVideos["computer science"]);
+      }
+      
+      // If still no matches, provide machine learning as default for tech topics
+      if (matchingVideos.length === 0) {
+        matchingVideos = academicVideos["machine learning"];
+      }
+      
+      // Remove duplicates and sort by final score
+      const uniqueVideos = matchingVideos.filter((video, index, self) => 
+        index === self.findIndex(v => v.youtube_id === video.youtube_id)
+      );
+      uniqueVideos.sort((a, b) => b.final_score - a.final_score);
+      
+      console.log(`Academic search found ${uniqueVideos.length} videos for "${topic}" in "${field}"`);
+      console.log('Academic videos:', uniqueVideos.map(v => `${v.title} (${v.youtube_id})`));
       
       res.json({
         success: true,
         topic,
         field,
-        content_found: matchingVideos.length,
-        academic_videos: matchingVideos.slice(0, 10) // Return top 10
+        content_found: uniqueVideos.length,
+        academic_videos: uniqueVideos.slice(0, 10) // Return top 10
       });
     } catch (error: any) {
       console.error('Academic search error:', error);
