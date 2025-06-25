@@ -390,30 +390,58 @@ async function processQueryWithAI(question: string) {
                  chunkLower.includes('email');
         });
         
-        // Calculate similarity scores for each chunk (mock scoring for now)
+        // Calculate similarity scores for each chunk based on relevance
         const chunksWithScores = relevantChunks.map(chunk => {
-          // Simple scoring based on keyword matches
           const chunkLower = chunk.content.toLowerCase();
+          const questionLower = question.toLowerCase();
+          
+          // Calculate relevance score based on multiple factors
           let score = 0;
+          
+          // Exact phrase matches get highest score
+          if (chunkLower.includes(questionLower)) {
+            score += 0.6;
+          }
+          
+          // Individual keyword matches
           questionWords.forEach(word => {
-            if (chunkLower.includes(word)) score += 0.3;
+            if (chunkLower.includes(word)) {
+              score += 0.15;
+            }
           });
-          // Add bonus for specific keywords
-          if (chunkLower.includes('vibe') || chunkLower.includes('coding')) score += 0.4;
-          if (chunkLower.includes('karpathy')) score += 0.3;
+          
+          // Context-specific scoring for key terms
+          if (questionWords.includes('neural') && chunkLower.includes('neural')) score += 0.3;
+          if (questionWords.includes('network') && chunkLower.includes('network')) score += 0.3;
+          if (questionWords.includes('graph') && chunkLower.includes('graph')) score += 0.3;
+          if (questionWords.includes('tissue') && chunkLower.includes('tissue')) score += 0.3;
+          if (questionWords.includes('vibe') && chunkLower.includes('vibe')) score += 0.4;
+          if (questionWords.includes('coding') && chunkLower.includes('coding')) score += 0.4;
+          
+          // Add timestamp to break ties (earlier content slightly preferred)
+          const timeBonus = chunk.startTime === "0:00" ? 0.05 : 0;
           
           return {
             ...chunk,
             video,
-            similarity: Math.min(score, 0.98) // Cap at 98%
+            similarity: Math.min(score + timeBonus, 0.99) // Cap at 99%
           };
         });
         
         allRelevantChunks.push(...chunksWithScores);
       }
       
-      // Sort ALL chunks by similarity score (highest first)
-      allRelevantChunks.sort((a, b) => b.similarity - a.similarity);
+      // Sort ALL chunks by similarity score (highest first) and log for debugging
+      allRelevantChunks.sort((a, b) => {
+        const diff = b.similarity - a.similarity;
+        return diff;
+      });
+      
+      // Log the sorted chunks for debugging
+      console.log("Sorted chunks by similarity:");
+      allRelevantChunks.slice(0, 5).forEach((chunk, i) => {
+        console.log(`${i+1}. ${chunk.video.title} - ${Math.round(chunk.similarity * 100)}% - ${chunk.startTime}`);
+      });
       
       // Take top 3 chunks across all videos
       const chunksToUse = allRelevantChunks.slice(0, 3);
