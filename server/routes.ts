@@ -793,10 +793,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
 }
 
 async function searchTopicVideos(topic: string, field: string, level: string, videoCount: number, focusAreas: string[] = []) {
-  // In production, this would use YouTube Data API with advanced search and ranking
-  // For now, simulate intelligent search with curated academic content
+  // Try YouTube API search first, fall back to curated content if API unavailable
+  try {
+    const { searchYouTubeVideos } = await import('./youtube-api');
+    const youtubeResults = await searchYouTubeVideos(topic, field, level, videoCount * 2);
+    
+    if (youtubeResults.length > 0) {
+      // Convert YouTube API results to our format
+      return youtubeResults.slice(0, videoCount).map(video => ({
+        youtubeId: video.youtubeId,
+        title: video.title,
+        duration: video.duration,
+        channelTitle: video.channelTitle,
+        publishedAt: video.publishedAt,
+        relevanceScore: (video as any).educationalScore || 0.8,
+        theoreticalDepth: calculateTheoreticalDepth(video.title, video.description),
+        practicalValue: calculatePracticalValue(video.title, video.description),
+        keyTopics: extractKeyTopics(video.title, video.description, topic, field),
+        field: field.toLowerCase()
+      }));
+    }
+  } catch (error: any) {
+    console.log('YouTube API not available, using curated content:', error.message);
+  }
+  
+  // Fallback to curated educational content
   
   const academicVideos = [
+    // Machine Learning & AI
+    {
+      youtubeId: "aircAruvnKk",
+      title: "But what is a Neural Network? | Deep learning, chapter 1",
+      duration: "19:13",
+      channelTitle: "3Blue1Brown",
+      publishedAt: "2017-10-05",
+      relevanceScore: 0.98,
+      theoreticalDepth: 0.9,
+      practicalValue: 0.95,
+      keyTopics: ["neural networks", "deep learning", "machine learning"],
+      field: "computer science"
+    },
+    {
+      youtubeId: "IHZwWFHWa-w",
+      title: "Gradient descent, how neural networks learn | Deep learning, chapter 2",
+      duration: "21:01",
+      channelTitle: "3Blue1Brown",
+      publishedAt: "2017-10-16",
+      relevanceScore: 0.97,
+      theoreticalDepth: 0.92,
+      practicalValue: 0.9,
+      keyTopics: ["gradient descent", "neural networks", "optimization"],
+      field: "computer science"
+    },
+    {
+      youtubeId: "Ilg3gGewQ5U",
+      title: "What is backpropagation really doing? | Deep learning, chapter 3",
+      duration: "13:54",
+      channelTitle: "3Blue1Brown",
+      publishedAt: "2017-11-03",
+      relevanceScore: 0.96,
+      theoreticalDepth: 0.94,
+      practicalValue: 0.88,
+      keyTopics: ["backpropagation", "neural networks", "deep learning"],
+      field: "computer science"
+    },
+    {
+      youtubeId: "tIeHLnjs5U8",
+      title: "Backpropagation calculus | Deep learning, chapter 4",
+      duration: "10:17",
+      channelTitle: "3Blue1Brown",
+      publishedAt: "2017-11-03",
+      relevanceScore: 0.95,
+      theoreticalDepth: 0.96,
+      practicalValue: 0.85,
+      keyTopics: ["backpropagation", "calculus", "neural networks"],
+      field: "computer science"
+    },
+    
+    // Quantum Physics & Biology
     {
       youtubeId: "m2SW35yaajE",
       title: "Open Quantum Systems Theory of Ultra Weak UV Photon Emissions",
@@ -833,29 +907,59 @@ async function searchTopicVideos(topic: string, field: string, level: string, vi
       keyTopics: ["quantum biology", "photons", "physiology"],
       field: "biology"
     },
+    
+    // Mathematics & Statistics
     {
-      youtubeId: "dQw4w9WgXcQ",
-      title: "Advanced Machine Learning Algorithms",
-      duration: "3:33",
-      channelTitle: "Academic Channel",
-      publishedAt: "2024-01-15",
-      relevanceScore: 0.85,
-      theoreticalDepth: 0.8,
+      youtubeId: "kYB8IZa5AuE",
+      title: "Linear transformations and matrices | Chapter 3, Essence of linear algebra",
+      duration: "10:58",
+      channelTitle: "3Blue1Brown",
+      publishedAt: "2016-08-15",
+      relevanceScore: 0.92,
+      theoreticalDepth: 0.88,
       practicalValue: 0.9,
-      keyTopics: ["machine learning", "algorithms", "optimization"],
-      field: "computer science"
+      keyTopics: ["linear algebra", "matrices", "transformations"],
+      field: "mathematics"
     },
     {
-      youtubeId: "jNQXAC9IVRw",
-      title: "Computational Biology Foundations",
-      duration: "0:19",
-      channelTitle: "Science Education",
-      publishedAt: "2024-02-01",
-      relevanceScore: 0.78,
-      theoreticalDepth: 0.75,
+      youtubeId: "fNk_zzaMoSs",
+      title: "The determinant | Chapter 6, Essence of linear algebra",
+      duration: "12:12",
+      channelTitle: "3Blue1Brown",
+      publishedAt: "2016-08-29",
+      relevanceScore: 0.90,
+      theoreticalDepth: 0.85,
       practicalValue: 0.85,
-      keyTopics: ["computational biology", "bioinformatics", "modeling"],
-      field: "biology"
+      keyTopics: ["determinant", "linear algebra", "mathematics"],
+      field: "mathematics"
+    },
+    
+    // Computer Science Fundamentals
+    {
+      youtubeId: "jNQXAC9IVRw",
+      title: "me at the zoo",
+      duration: "0:19",
+      channelTitle: "jawed",
+      publishedAt: "2005-04-23",
+      relevanceScore: 0.20,
+      theoreticalDepth: 0.1,
+      practicalValue: 0.1,
+      keyTopics: ["historical", "first youtube video"],
+      field: "history"
+    },
+    
+    // Data Science & Statistics
+    {
+      youtubeId: "HcEs6OGGRJo",
+      title: "What is Bayes' theorem? | Probability and Statistics",
+      duration: "15:24",
+      channelTitle: "Khan Academy",
+      publishedAt: "2019-03-12",
+      relevanceScore: 0.89,
+      theoreticalDepth: 0.82,
+      practicalValue: 0.88,
+      keyTopics: ["bayes theorem", "probability", "statistics"],
+      field: "mathematics"
     }
   ];
 
@@ -1022,6 +1126,52 @@ function extractPracticalApplications(title: string, field: string): string[] {
   if (title.toLowerCase().includes("method")) applications.push("Practical methods");
   
   return applications.length > 0 ? applications : [`${field} applications`];
+}
+
+function calculateTheoreticalDepth(title: string, description: string): number {
+  const text = `${title} ${description}`.toLowerCase();
+  let score = 0.5;
+  
+  // Advanced keywords increase theoretical depth
+  const advancedTerms = ["theory", "algorithm", "mathematical", "proof", "analysis", "research", "advanced"];
+  advancedTerms.forEach(term => {
+    if (text.includes(term)) score += 0.1;
+  });
+  
+  return Math.min(1.0, score);
+}
+
+function calculatePracticalValue(title: string, description: string): number {
+  const text = `${title} ${description}`.toLowerCase();
+  let score = 0.5;
+  
+  // Practical keywords increase practical value
+  const practicalTerms = ["tutorial", "how to", "implementation", "example", "practice", "hands-on", "project"];
+  practicalTerms.forEach(term => {
+    if (text.includes(term)) score += 0.1;
+  });
+  
+  return Math.min(1.0, score);
+}
+
+function extractKeyTopics(title: string, description: string, topic: string, field: string): string[] {
+  const text = `${title} ${description}`.toLowerCase();
+  const topics = [topic.toLowerCase(), field.toLowerCase()];
+  
+  // Common academic topics
+  const academicTerms = [
+    "machine learning", "deep learning", "neural networks", "algorithms", "data science",
+    "quantum physics", "biology", "chemistry", "mathematics", "statistics",
+    "computer science", "programming", "software engineering", "research methods"
+  ];
+  
+  academicTerms.forEach(term => {
+    if (text.includes(term) && !topics.includes(term)) {
+      topics.push(term);
+    }
+  });
+  
+  return topics.slice(0, 5); // Limit to 5 key topics
 }
 
 function extractChannelId(url: string): string | null {
