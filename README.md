@@ -4,9 +4,9 @@ A sophisticated multi-agent YouTube transcript processing system built with a mo
 
 ## Features
 
-- **Multi-Agent Architecture**: Specialized agents for transcript fetching, text chunking, vector embedding, query processing, and reflection
+- **Multi-Agent Architecture**: Specialized agents for transcript fetching, text chunking, vector embedding, and query processing
 - **ReAct Pattern**: Intelligent response evaluation with suggestions for refined queries
-- **Real-time Monitoring**: Live agent status updates and system metrics with WebSocket integration
+- **Real-time Monitoring**: Live agent status updates with visual pipeline diagram
 - **Bulk Processing**: Process entire YouTube channels and playlists efficiently
 - **AI-Powered Queries**: Semantic search with retrieval-augmented generation using OpenAI GPT-4o
 - **Vector Database**: FAISS-powered similarity search for high-performance queries
@@ -20,7 +20,6 @@ A sophisticated multi-agent YouTube transcript processing system built with a mo
 - Tailwind CSS + shadcn/ui component library
 - TanStack Query for state management
 - Wouter for client-side routing
-- WebSocket for real-time updates
 - Framer Motion for animations
 
 ### Backend
@@ -30,53 +29,48 @@ A sophisticated multi-agent YouTube transcript processing system built with a mo
 - FAISS vector database for embeddings
 - OpenAI API integration (GPT-4o)
 - YouTube Data API v3
-- WebSocket server for real-time communication
 
-### Agent Architecture
-1. **Transcript Fetcher Agent**: Retrieves YouTube video transcripts
-2. **Text Chunker Agent**: Splits transcripts into semantic chunks
-3. **Vector Embedder Agent**: Creates and manages vector embeddings
-4. **Query Processor Agent**: Handles user queries with RAG
-5. **Reflection Agent**: Evaluates responses using ReAct pattern
+## Agent Architecture
+
+- **Transcript Fetcher Agent**: Retrieves YouTube video transcripts
+- **Text Chunker Agent**: Splits transcripts into semantic chunks
+- **Vector Embedder Agent**: Creates and manages vector embeddings
+- **Query Processor Agent**: Handles user queries with RAG
 
 ## Getting Started
 
 ### Prerequisites
-
-- **Node.js** 20+
-- **Python** 3.11+
-- **PostgreSQL**
-- **OpenAI API key**
-- **YouTube Data API key** (optional, for enhanced features)
+- Node.js 20+
+- Python 3.11+
+- PostgreSQL
+- OpenAI API key
+- YouTube Data API key (optional, for enhanced features)
 
 ### Installation
 
-#### 1. Clone the repository
+1. **Clone the repository**
 ```bash
 git clone https://github.com/alenochka/MultiAgentCollab2.git
 cd MultiAgentCollab2
 ```
 
-#### 2. Install Node.js dependencies
+2. **Install Node.js dependencies**
 ```bash
 npm install
 ```
 
-#### 3. Install Python dependencies using uv (Recommended for macOS)
+3. **Install Python dependencies using uv (Recommended for macOS)**
 
-**Install uv package manager:**
+Install uv package manager:
 ```bash
 # macOS (using Homebrew)
 brew install uv
 
 # macOS (using curl)
 curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Alternative: using pip
-pip install uv
 ```
 
-**Set up Python environment with uv:**
+Set up Python environment with uv:
 ```bash
 # Create virtual environment with Python 3.11
 uv venv --python 3.11
@@ -84,78 +78,67 @@ uv venv --python 3.11
 # Activate virtual environment
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# Install dependencies
-uv pip install -r server/requirements.txt
-
-# Alternative: Install dependencies directly
-uv pip install fastapi uvicorn websockets aiofiles pydantic python-dotenv requests youtube-transcript-api google-api-python-client langchain langchain-openai langchain-google-genai faiss-cpu numpy python-multipart
+# Install dependencies from pyproject.toml
+uv pip install -e .
 ```
 
-#### 4. Set up environment variables
+4. **Set up PostgreSQL database**
+```bash
+# Create database (adjust username as needed)
+createdb youtube_ai_agents
+```
+
+5. **Set up environment variables**
 ```bash
 # Copy environment template
 cp .env.example .env
 
-# Edit .env file with API keys:
-# OPENAI_API_KEY=openai_api_key_here
-# YOUTUBE_API_KEY=youtube_api_key_here (optional)
-# DATABASE_URL=database_url_here
+# Edit .env file with your configuration:
+DATABASE_URL="postgresql://your_username@localhost:5432/youtube_ai_agents"
+OPENAI_API_KEY="your_openai_api_key_here"
+YOUTUBE_API_KEY="your_youtube_api_key_here"  # Optional
 ```
 
-#### 5. Initialize database
+6. **Initialize database**
 ```bash
 npm run db:push
 ```
 
-## Running the Application
+### Running the Application
 
-### Development Mode
+**Development Mode (Two Terminal Approach)**
 
-#### Option 1: Using npm (recommended)
+Terminal 1 - Start Python agent server:
 ```bash
-# Start both frontend and backend
+source .venv/bin/activate
+python -m uvicorn server.python_agent_server:app --host 0.0.0.0 --port 8000
+```
+
+Terminal 2 - Start Node.js frontend server:
+```bash
 npm run dev
 ```
 
-#### Option 2: Manual startup
-```bash
-# Terminal 1: Start main Node.js server
-npm run dev
-
-# Terminal 2: Start Python agent server
-source .venv/bin/activate  # Activate virtual environment
-cd server
-python -m uvicorn python_agent_server:app --host 0.0.0.0 --port 8000
-```
-
-### Production Mode
-```bash
-# Build the application
-npm run build
-
-# Start production server
-npm run start
-```
-
-### Access the application
-Open [http://localhost:5000](http://localhost:5000) in the browser
+**Access the application**
+- Frontend: http://localhost:5173
+- Python API: http://localhost:8000
+- Health check: http://localhost:8000/health
 
 ## Usage
 
 ### Processing YouTube Content
-1. **Single Video**: Enter a YouTube video URL to extract and process transcripts
-2. **Bulk Channel Processing**: Process entire channels by entering channel URLs
-3. **Playlist Processing**: Import and process YouTube playlists efficiently
+- **Single Video**: Enter a YouTube video URL to extract and process transcripts
+- **Bulk Channel Processing**: Process entire channels by entering channel URLs
+- **Playlist Processing**: Import and process YouTube playlists efficiently
 
 ### AI-Powered Queries
-1. **Ask Questions**: Submit natural language queries about processed video content
-2. **View Sources**: See relevant transcript chunks with clickable timestamps
-3. **Reflection Suggestions**: Get intelligent suggestions for refined queries and related questions
+- **Ask Questions**: Submit natural language queries about processed video content
+- **View Sources**: See relevant transcript chunks with clickable timestamps
+- **Reflection Suggestions**: Get intelligent suggestions for refined queries and related questions
 
 ### Real-time Monitoring
-- **Agent Activity**: Monitor the 5-agent pipeline in real-time
-- **System Metrics**: Track API calls, response times, and success rates
-- **Processing Logs**: View detailed logs of all agent activities
+- **Agent Activity**: Monitor the 4-agent pipeline with visual status indicators
+- **Processing Status**: Track video processing progress in real-time
 
 ## API Endpoints
 
@@ -175,8 +158,10 @@ Open [http://localhost:5000](http://localhost:5000) in the browser
 - `GET /api/system/metrics` - Get overall system metrics
 - `GET /api/system/logs` - Get system activity logs
 
-### Real-time Updates
-- `WebSocket /ws` - Real-time agent status and system updates
+### Python Agent Server
+- `GET /health` - Health check endpoint
+- `POST /process_video` - Process video through agent pipeline
+- `POST /query` - Query processed content
 
 ## Project Structure
 
@@ -189,9 +174,18 @@ Open [http://localhost:5000](http://localhost:5000) in the browser
 │   │   └── lib/            # Utilities
 ├── server/                 # Backend services
 │   ├── agents/             # Python agent system
+│   │   ├── __init__.py
+│   │   ├── orchestrator.py
+│   │   ├── transcript_fetcher.py
+│   │   ├── text_chunker.py
+│   │   ├── vector_embedder.py
+│   │   └── query_processor.py
 │   ├── services/           # Business logic
+│   │   ├── __init__.py
+│   │   └── vector_db.py
 │   ├── routes.ts           # Express routes
 │   ├── storage.ts          # Database operations
+│   ├── index.ts            # Main Express server
 │   └── python_agent_server.py  # FastAPI server
 ├── shared/                 # Shared types and schemas
 └── database/               # Database migrations and schema
@@ -199,25 +193,46 @@ Open [http://localhost:5000](http://localhost:5000) in the browser
 
 ## Environment Variables
 
-```env
+```bash
 # Required
 OPENAI_API_KEY=sk-...openai_key
-DATABASE_URL=postgresql://user:password@localhost:5432/youtube_ai_agents
+DATABASE_URL=postgresql://username@localhost:5432/youtube_ai_agents
 
 # Optional
-YOUTUBE_API_KEY=youtube_api_key  # Optional
+YOUTUBE_API_KEY=youtube_api_key  # For enhanced metadata
 ```
 
 ## Database Schema
 
 The system uses PostgreSQL with the following main tables:
-- `videos`: Stores video metadata and processing status
-- `transcripts`: Raw transcript data with timestamps
-- `chunks`: Processed text chunks for vector search
-- `embeddings`: Vector embeddings for semantic search
-- `queries`: Query history and responses
-- `agents`: Agent status and metrics
-- `system_logs`: Detailed activity logs
+
+- **videos**: Stores video metadata and processing status
+- **transcripts**: Raw transcript data with timestamps
+- **chunks**: Processed text chunks for vector search
+- **embeddings**: Vector embeddings for semantic search
+- **queries**: Query history and responses
+- **agents**: Agent status and metrics
+- **system_logs**: Detailed activity logs
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Port conflicts**: If ports 5173 or 8000 are in use, kill processes with:
+   ```bash
+   lsof -ti:5173 | xargs kill -9
+   lsof -ti:8000 | xargs kill -9
+   ```
+
+2. **Python import errors**: Ensure you're in the project root and virtual environment is activated:
+   ```bash
+   source .venv/bin/activate
+   ```
+
+3. **Database connection**: Verify PostgreSQL is running and database exists:
+   ```bash
+   psql -d youtube_ai_agents -c "SELECT 1;"
+   ```
 
 ## Contributing
 
@@ -230,11 +245,12 @@ The system uses PostgreSQL with the following main tables:
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Credits
 
 Built with modern web technologies and AI frameworks:
+
 - **Frontend**: React, TypeScript, Tailwind CSS, shadcn/ui
 - **Backend**: Node.js, Express, Python FastAPI
 - **Database**: PostgreSQL, Drizzle ORM
