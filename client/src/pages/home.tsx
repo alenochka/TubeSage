@@ -61,6 +61,9 @@ export default function Home() {
             
             {/* Channel Processor */}
             <ChannelProcessor />
+            
+            {/* Playlist Processor */}
+            <PlaylistProcessor />
 
             {/* Query Interface */}
             <QueryInterface onQuerySelect={setSelectedQuery} />
