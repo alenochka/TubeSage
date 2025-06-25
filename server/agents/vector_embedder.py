@@ -119,9 +119,10 @@ class VectorEmbedder(BaseAgent):
                         'end_time': chunk_data.get('end_time')
                     })
             
-            # Filter for high relevance and sort by similarity
+            # Filter for high relevance and sort by similarity (highest first)
+            # Note: Higher cosine similarity = smaller distance = more relevant
             high_relevance = [s for s in similarities if s['similarity'] > 0.5]
-            high_relevance.sort(key=lambda x: x['similarity'], reverse=True)
+            high_relevance.sort(key=lambda x: x['similarity'], reverse=True)  # Highest similarity first
             top_results = high_relevance[:min(top_k, 3)]  # Limit to 3 chunks max
             
             result = {

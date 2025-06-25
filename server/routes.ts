@@ -388,16 +388,25 @@ async function processQueryWithAI(question: string) {
                  chunkLower.includes('email');
         });
         
-        // Always include ending chunks since they often contain contact info and conclusions
-        const endingChunks = chunks.slice(-3); // Last 3 chunks
-        const allCandidateChunks = [...relevantChunks, ...endingChunks];
+        // Sort chunks by similarity (highest cosine similarity first)
+        const sortedByRelevance = relevantChunks.sort((a, b) => {
+          // Assuming chunks have similarity scores from vector search
+          const aScore = a.similarity || 0;
+          const bScore = b.similarity || 0;
+          return bScore - aScore; // Descending order (highest similarity first)
+        });
         
-        // Remove duplicates and take top chunks
+        // Take top chunks and add some ending chunks for context
+        const topChunks = sortedByRelevance.slice(0, 2);
+        const endingChunks = chunks.slice(-1); // Last chunk for conclusions
+        const allCandidateChunks = [...topChunks, ...endingChunks];
+        
+        // Remove duplicates and limit to control context size
         const uniqueChunks = allCandidateChunks.filter((chunk, index, array) => 
           array.findIndex(c => c.id === chunk.id) === index
         );
         
-        const chunksToUse = uniqueChunks.slice(0, 3); // Limit to 3 chunks to control context size
+        const chunksToUse = uniqueChunks.slice(0, 3); // Final limit to 3 chunks
         
         for (const chunk of chunksToUse) {
           // Limit chunk content to prevent token overflow
@@ -414,7 +423,7 @@ async function processQueryWithAI(question: string) {
             videoId: video.youtubeId,
             timestamp: chunk.startTime || "0:00",
             excerpt: limitedContent.substring(0, 150) + "...",
-            confidence: relevantChunks.includes(chunk) ? 90 + Math.floor(Math.random() * 8) : 75 + Math.floor(Math.random() * 10),
+            confidence: chunk.similarity ? Math.round(chunk.similarity * 100) : (relevantChunks.includes(chunk) ? 90 + Math.floor(Math.random() * 8) : 75 + Math.floor(Math.random() * 10)),
             relevance: relevantChunks.includes(chunk) ? "High" : "Medium",
             youtubeUrl: `https://www.youtube.com/watch?v=${video.youtubeId}&t=${timeInSeconds}s`
           });
