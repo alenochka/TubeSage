@@ -45,7 +45,7 @@ A sophisticated multi-agent YouTube transcript processing system built with a mo
 
 - **Node.js** 20+
 - **Python** 3.11+
-- **PostgreSQL** (or use Replit's built-in database)
+- **PostgreSQL**
 - **OpenAI API key**
 - **YouTube Data API key** (optional, for enhanced features)
 
@@ -96,10 +96,10 @@ uv pip install fastapi uvicorn websockets aiofiles pydantic python-dotenv reques
 # Copy environment template
 cp .env.example .env
 
-# Edit .env file with your API keys:
-# OPENAI_API_KEY=your_openai_api_key_here
-# YOUTUBE_API_KEY=your_youtube_api_key_here (optional)
-# DATABASE_URL=your_database_url_here
+# Edit .env file with API keys:
+# OPENAI_API_KEY=openai_api_key_here
+# YOUTUBE_API_KEY=youtube_api_key_here (optional)
+# DATABASE_URL=database_url_here
 ```
 
 #### 5. Initialize database
@@ -138,7 +138,7 @@ npm run start
 ```
 
 ### Access the application
-Open [http://localhost:5000](http://localhost:5000) in your browser
+Open [http://localhost:5000](http://localhost:5000) in the browser
 
 ## Usage
 
@@ -199,80 +199,44 @@ Open [http://localhost:5000](http://localhost:5000) in your browser
 
 ## Environment Variables
 
-Required environment variables:
-```bash
-# Database
-DATABASE_URL=postgresql://user:password@host:port/database
+```env
+# Required
+OPENAI_API_KEY=sk-...openai_key
+DATABASE_URL=postgresql://user:password@localhost:5432/youtube_ai_agents
 
-# AI Services
-OPENAI_API_KEY=sk-...your_openai_key
-YOUTUBE_API_KEY=your_youtube_api_key  # Optional
-
-# Application
-NODE_ENV=development
-PORT=5000
+# Optional
+YOUTUBE_API_KEY=youtube_api_key  # Optional
 ```
 
-## Troubleshooting
+## Database Schema
 
-### Common Issues on macOS
-
-1. **Python Environment Issues**:
-   ```bash
-   # Ensure you're using the correct Python version
-   uv venv --python 3.11
-   source .venv/bin/activate
-   which python  # Should point to .venv/bin/python
-   ```
-
-2. **Package Installation Failures**:
-   ```bash
-   # Update uv to latest version
-   uv self update
-   
-   # Clear cache and reinstall
-   uv cache clean
-   uv pip install -r server/requirements.txt --force-reinstall
-   ```
-
-3. **FAISS Installation Issues**:
-   ```bash
-   # Install FAISS specifically for CPU
-   uv pip install faiss-cpu
-   ```
-
-4. **Database Connection Issues**:
-   ```bash
-   # Check database connection
-   npm run db:push
-   
-   # Reset database if needed
-   npm run db:reset
-   ```
-
-### Performance Tips
-
-- Use the built-in PostgreSQL database for optimal performance
-- Enable YouTube API key for better rate limits and metadata
-- Process videos in batches for better resource utilization
-- Monitor system metrics to optimize agent performance
+The system uses PostgreSQL with the following main tables:
+- `videos`: Stores video metadata and processing status
+- `transcripts`: Raw transcript data with timestamps
+- `chunks`: Processed text chunks for vector search
+- `embeddings`: Vector embeddings for semantic search
+- `queries`: Query history and responses
+- `agents`: Agent status and metrics
+- `system_logs`: Detailed activity logs
 
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/your-feature`
-3. Make your changes and add tests if applicable
-4. Commit your changes: `git commit -m "Add your feature"`
-5. Push to the branch: `git push origin feature/your-feature`
-6. Submit a pull request
+2. Create a feature branch: `git checkout -b feature/new-feature`
+3. Make changes and add tests if applicable
+4. Commit changes: `git commit -m "Add new feature"`
+5. Push to the branch: `git push origin feature/new-feature`
+6. Open a Pull Request
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Acknowledgments
+## Credits
 
-- OpenAI for GPT-4o API
-- YouTube for transcript and API access
-- FAISS for high-performance vector search
-- Replit for development and deployment platform
+Built with modern web technologies and AI frameworks:
+- **Frontend**: React, TypeScript, Tailwind CSS, shadcn/ui
+- **Backend**: Node.js, Express, Python FastAPI
+- **Database**: PostgreSQL, Drizzle ORM
+- **AI/ML**: OpenAI API, LangChain, FAISS
+- **Development**: Vite, uv package manager

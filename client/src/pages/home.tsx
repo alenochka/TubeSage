@@ -5,7 +5,6 @@ import VideoInput from "@/components/video-input";
 import QueryInterface from "@/components/query-interface";
 import ResultsDisplay from "@/components/results-display";
 import VectorDatabase from "@/components/vector-database";
-import AgentPanel from "@/components/agent-panel";
 import AgentDiagram from "@/components/agent-diagram";
 import ChannelProcessor from "@/components/channel-processor";
 import PlaylistProcessor from "@/components/playlist-processor";
@@ -21,34 +20,33 @@ export default function Home() {
   useWebSocket("/ws");
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 fixed w-full top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+      <header className="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-10">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Bot className="w-8 h-8 text-primary" />
+              <h1 className="text-2xl font-bold text-gray-900">
+                YouTube AI Agent System
+              </h1>
+            </div>
+            
+            {/* System Status */}
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <Bot className="text-primary text-2xl" />
-                <h1 className="text-xl font-bold text-neutral-800">YouTube AI Agent System</h1>
+                <Circle className="w-3 h-3 fill-current text-green-500" />
+                <span className="text-sm text-gray-600">System Active</span>
               </div>
-              <Badge variant="secondary" className="bg-secondary/10 text-secondary">
-                v2.0 Multi-Agent
+              <Badge variant="secondary" className="flex items-center space-x-1">
+                <Cog className="w-3 h-3" />
+                <span>{activeAgentCount} Agents Running</span>
               </Badge>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 text-sm">
-                <Circle className="w-2 h-2 text-secondary fill-current status-pulse" />
-                <span className="text-neutral-500">{activeAgentCount} Agents Active</span>
-              </div>
-              <Button variant="ghost" size="sm">
-                <Cog className="w-4 h-4" />
-              </Button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Layout */}
       <div className="flex h-screen pt-16">
         {/* Sidebar */}
         <Sidebar />
@@ -76,14 +74,9 @@ export default function Home() {
           </div>
         </main>
 
-        {/* Agent Panel */}
-        <div className="flex flex-col">
-          <AgentPanel onActiveCountChange={setActiveAgentCount} />
-          
-          {/* Agent Activity Diagram under Agent Orchestration */}
-          <div className="mt-6">
-            <AgentDiagram />
-          </div>
+        {/* Agent Activity Diagram Only */}
+        <div className="w-80 bg-white border-l border-gray-200 overflow-y-auto p-6">
+          <AgentDiagram />
         </div>
       </div>
     </div>

@@ -19,11 +19,14 @@ class VectorEmbedder(BaseAgent):
         self.google_api_key = os.getenv('GOOGLE_API_KEY', '')
         
         # Initialize FAISS-powered vector database
-        import sys
-        import os
-        sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-        from services.vector_db import VectorDatabase
-        self.vector_db = VectorDatabase(dimension=1536)
+        try:
+            import sys
+            sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+            from services.vector_db import VectorDatabase
+            self.vector_db = VectorDatabase(dimension=1536)
+        except ImportError:
+            # Fallback to a simple dict if VectorDatabase is not available
+            self.vector_db = None
         self.embeddings_cache = {}
     
     async def process_task(self, task: Dict[str, Any]) -> Dict[str, Any]:

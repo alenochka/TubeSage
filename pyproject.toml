@@ -1,7 +1,7 @@
 [project]
-name = "repl-nix-workspace"
+name = "youtube-ai-agent-system"
 version = "0.1.0"
-description = "Add your description here"
+description = "Multi-agent YouTube transcript processing system with vector search and AI-powered queries"
 requires-python = ">=3.11"
 dependencies = [
     "aiofiles>=24.1.0",
