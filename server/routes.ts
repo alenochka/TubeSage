@@ -805,8 +805,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({
         channelId: actualChannelId,
+        channelUrl,
         videos: channelVideos,
-        totalCount: channelVideos.length
+        totalCount: channelVideos.length,
+        success: true
       });
     } catch (error: any) {
       console.error("Error fetching channel videos:", error);
