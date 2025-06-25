@@ -880,7 +880,16 @@ async function fetchRealChannelVideos(channelId: string, maxResults: number = 50
     }
 
     // First, get the channel's upload playlist ID
-    const channelUrl = `https://www.googleapis.com/youtube/v3/channels?id=${channelId}&key=${apiKey}&part=contentDetails`;
+    // Try different API endpoints based on channel identifier type
+    let channelUrl;
+    if (channelId.startsWith('UC')) {
+      // Direct channel ID
+      channelUrl = `https://www.googleapis.com/youtube/v3/channels?id=${channelId}&key=${apiKey}&part=contentDetails`;
+    } else {
+      // Username or handle - try forUsername first
+      channelUrl = `https://www.googleapis.com/youtube/v3/channels?forUsername=${channelId}&key=${apiKey}&part=contentDetails`;
+    }
+    
     const channelResponse = await fetch(channelUrl);
     
     if (!channelResponse.ok) {
@@ -890,59 +899,73 @@ async function fetchRealChannelVideos(channelId: string, maxResults: number = 50
     const channelData = await channelResponse.json();
     
     if (!channelData.items || channelData.items.length === 0) {
+      // If forUsername failed, try search API for @handles
+      if (!channelId.startsWith('UC')) {
+        const searchUrl = `https://www.googleapis.com/youtube/v3/search?q=${channelId}&type=channel&key=${apiKey}&part=id&maxResults=1`;
+        const searchResponse = await fetch(searchUrl);
+        
+        if (searchResponse.ok) {
+          const searchData = await searchResponse.json();
+          if (searchData.items && searchData.items.length > 0) {
+            const foundChannelId = searchData.items[0].id.channelId;
+            // Retry with found channel ID
+            const retryUrl = `https://www.googleapis.com/youtube/v3/channels?id=${foundChannelId}&key=${apiKey}&part=contentDetails`;
+            const retryResponse = await fetch(retryUrl);
+            if (retryResponse.ok) {
+              const retryData = await retryResponse.json();
+              if (retryData.items && retryData.items.length > 0) {
+                return await fetchChannelVideosFromPlaylist(retryData.items[0].contentDetails.relatedPlaylists.uploads, apiKey, maxResults);
+              }
+            }
+          }
+        }
+      }
       throw new Error("Channel not found");
     }
     
     const uploadsPlaylistId = channelData.items[0].contentDetails.relatedPlaylists.uploads;
-    
-    // Get videos from the uploads playlist
-    const playlistUrl = `https://www.googleapis.com/youtube/v3/playlistItems?playlistId=${uploadsPlaylistId}&key=${apiKey}&part=snippet&maxResults=${Math.min(maxResults, 50)}`;
-    const playlistResponse = await fetch(playlistUrl);
-    
-    if (!playlistResponse.ok) {
-      throw new Error(`YouTube API error: ${playlistResponse.status}`);
-    }
-    
-    const playlistData = await playlistResponse.json();
-    
-    if (!playlistData.items) {
-      return [];
-    }
-    
-    // Get detailed video information for durations
-    const videoIds = playlistData.items.map(item => item.snippet.resourceId.videoId).join(',');
-    const videosUrl = `https://www.googleapis.com/youtube/v3/videos?id=${videoIds}&key=${apiKey}&part=snippet,contentDetails`;
-    const videosResponse = await fetch(videosUrl);
-    
-    if (!videosResponse.ok) {
-      throw new Error(`YouTube API error: ${videosResponse.status}`);
-    }
-    
-    const videosData = await videosResponse.json();
-    
-    return videosData.items.map(video => ({
-      id: video.id,
-      title: video.snippet.title,
-      duration: parseDuration(video.contentDetails.duration),
-      publishedAt: video.snippet.publishedAt.split('T')[0],
-      thumbnailUrl: video.snippet.thumbnails.high?.url || video.snippet.thumbnails.default?.url,
-      url: `https://www.youtube.com/watch?v=${video.id}`
-    }));
+    return await fetchChannelVideosFromPlaylist(uploadsPlaylistId, apiKey, maxResults);
     
   } catch (error) {
     console.error('Error fetching real channel videos:', error);
-    // Fallback to a few sample videos if API fails
-    return [
-      {
-        id: "dQw4w9WgXcQ",
-        title: "Sample Video 1",
-        duration: "3:33",
-        publishedAt: "2023-01-01",
-        thumbnailUrl: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
-        url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-      }
-    ];
+    throw error; // Don't fallback to sample videos, let the error propagate
   }
+}
+
+async function fetchChannelVideosFromPlaylist(uploadsPlaylistId: string, apiKey: string, maxResults: number) {
+  // Get videos from the uploads playlist
+  const playlistUrl = `https://www.googleapis.com/youtube/v3/playlistItems?playlistId=${uploadsPlaylistId}&key=${apiKey}&part=snippet&maxResults=${Math.min(maxResults, 50)}`;
+  const playlistResponse = await fetch(playlistUrl);
+  
+  if (!playlistResponse.ok) {
+    throw new Error(`YouTube API error: ${playlistResponse.status}`);
+  }
+  
+  const playlistData = await playlistResponse.json();
+  
+  if (!playlistData.items) {
+    return [];
+  }
+  
+  // Get detailed video information for durations
+  const videoIds = playlistData.items.map(item => item.snippet.resourceId.videoId).join(',');
+  const videosUrl = `https://www.googleapis.com/youtube/v3/videos?id=${videoIds}&key=${apiKey}&part=snippet,contentDetails`;
+  const videosResponse = await fetch(videosUrl);
+  
+  if (!videosResponse.ok) {
+    throw new Error(`YouTube API error: ${videosResponse.status}`);
+  }
+  
+  const videosData = await videosResponse.json();
+  
+  return videosData.items.map(video => ({
+    id: video.id,
+    title: video.snippet.title,
+    duration: parseDuration(video.contentDetails.duration),
+    publishedAt: video.snippet.publishedAt.split('T')[0],
+    thumbnailUrl: video.snippet.thumbnails.high?.url || video.snippet.thumbnails.default?.url,
+    url: `https://www.youtube.com/watch?v=${video.id}`
+  }));
 }
 
 function extractChannelId(url: string): string | null {
