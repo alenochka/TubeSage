@@ -1,13 +1,15 @@
-import { Brain, Clock, ExternalLink } from "lucide-react";
+import { Brain, Clock, ExternalLink, Lightbulb, Search, TrendingUp, Star } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 
 interface ResultsDisplayProps {
   query: any;
+  onQuerySelect?: (query: string) => void;
 }
 
-export default function ResultsDisplay({ query }: ResultsDisplayProps) {
+export default function ResultsDisplay({ query, onQuerySelect }: ResultsDisplayProps) {
   if (!query) return null;
 
   const formatResponseTime = (ms: number) => {
