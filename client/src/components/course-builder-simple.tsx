@@ -236,23 +236,35 @@ export default function CourseBuilderSimple({ onCourseCreated }: CourseBuilderPr
                 </div>
               </div>
 
-              <Button 
-                onClick={handleSearch} 
-                disabled={isSearching || !topic || !field}
-                className="w-full"
-              >
-                {isSearching ? (
-                  <>
-                    <Search className="w-4 h-4 mr-2 animate-spin" />
-                    Searching YouTube...
-                  </>
-                ) : (
-                  <>
-                    <Search className="w-4 h-4 mr-2" />
-                    Search for Videos
-                  </>
-                )}
-              </Button>
+              <div className="space-y-2">
+                <Button 
+                  onClick={handleSearch} 
+                  disabled={isSearching || !topic || !field}
+                  className="w-full"
+                >
+                  {isSearching ? (
+                    <>
+                      <Search className="w-4 h-4 mr-2 animate-spin" />
+                      Searching YouTube...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-4 h-4 mr-2" />
+                      Search for Videos
+                    </>
+                  )}
+                </Button>
+                
+                <Button 
+                  onClick={() => searchAcademicContent()}
+                  variant="outline"
+                  disabled={isSearching || !topic || !field}
+                  className="w-full"
+                >
+                  <GraduationCap className="w-4 h-4 mr-2" />
+                  Search Academic Sources
+                </Button>
+              </div>
             </>
           ) : (
             // Results and Generation
