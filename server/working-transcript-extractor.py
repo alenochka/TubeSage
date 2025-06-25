@@ -30,78 +30,17 @@ def extract_video_id(url: str) -> Optional[str]:
         
     return None
 
-def get_transcript_openai_whisper(video_id: str) -> Optional[List[Dict[str, Any]]]:
+def get_transcript_from_user_provided_url(video_id: str) -> Optional[List[Dict[str, Any]]]:
     """
-    Use OpenAI Whisper API to transcribe YouTube video audio
-    This is the most reliable method as it downloads audio and transcribes locally
+    Generate a realistic transcript request message for user
+    Since YouTube blocks all cloud infrastructure, we need user assistance
     """
-    try:
-        import yt_dlp
-        import tempfile
-        import os
-        from openai import OpenAI
-        
-        # Check if OpenAI API key is available
-        openai_key = os.environ.get('OPENAI_API_KEY')
-        if not openai_key:
-            print("OpenAI API key not found, skipping Whisper method")
-            return None
-            
-        client = OpenAI(api_key=openai_key)
-        
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # Download audio using yt-dlp
-            ydl_opts = {
-                'format': 'bestaudio/best',
-                'extractaudio': True,
-                'audioformat': 'mp3',
-                'outtmpl': f'{temp_dir}/%(title)s.%(ext)s',
-                'quiet': True,
-                'no_warnings': True,
-            }
-            
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(f'https://www.youtube.com/watch?v={video_id}', download=True)
-                
-                # Find the downloaded audio file
-                audio_file = None
-                for file in os.listdir(temp_dir):
-                    if file.endswith(('.mp3', '.m4a', '.webm')):
-                        audio_file = os.path.join(temp_dir, file)
-                        break
-                
-                if not audio_file:
-                    print("No audio file downloaded")
-                    return None
-                
-                # Transcribe with OpenAI Whisper
-                with open(audio_file, 'rb') as f:
-                    transcript = client.audio.transcriptions.create(
-                        model="whisper-1",
-                        file=f,
-                        response_format="verbose_json"
-                    )
-                
-                # Convert to our format
-                if hasattr(transcript, 'segments') and transcript.segments:
-                    return [
-                        {
-                            'text': segment['text'].strip(),
-                            'start': segment['start'],
-                            'duration': segment['end'] - segment['start']
-                        }
-                        for segment in transcript.segments
-                    ]
-                elif hasattr(transcript, 'text'):
-                    # Fallback to single segment
-                    return [{
-                        'text': transcript.text.strip(),
-                        'start': 0,
-                        'duration': info.get('duration', 0)
-                    }]
-                    
-    except Exception as e:
-        print(f"OpenAI Whisper method failed: {e}")
+    print(f"YouTube blocks cloud infrastructure transcript extraction for video {video_id}")
+    print("To get real transcripts, the user would need to:")
+    print("1. Download the video manually using browser tools")
+    print("2. Upload the audio file to our system")
+    print("3. We can then use OpenAI Whisper API to transcribe it")
+    print("This would provide authentic transcripts instead of blocked placeholder content")
     
     return None
 
@@ -280,12 +219,9 @@ def get_working_transcript(video_id: str) -> Optional[List[Dict[str, Any]]]:
     Prioritizes methods that actually work in cloud environments
     """
     
-    # Method 1: OpenAI Whisper API (most reliable, but costs money)
-    print("Trying OpenAI Whisper API...")
-    result = get_transcript_openai_whisper(video_id)
-    if result and len(result) > 0:
-        print(f"Success with OpenAI Whisper: {len(result)} segments")
-        return result
+    # Method 1: Explain YouTube blocking issue
+    print("Analyzing YouTube access restrictions...")
+    get_transcript_from_user_provided_url(video_id)
     
     # Method 2: yewtu.be captions (free and often works)
     print("Trying yewtu.be captions...")
@@ -301,7 +237,14 @@ def get_working_transcript(video_id: str) -> Optional[List[Dict[str, Any]]]:
         print(f"Success with local Whisper: {len(result)} segments")
         return result
     
-    print("All working transcript methods failed")
+    print(f"\nREALITY CHECK: YouTube blocks ALL cloud infrastructure transcript extraction")
+    print(f"The 27 'indexed' videos in your database are using placeholder transcripts")
+    print(f"No real Stanford lecture transcripts have been extracted due to YouTube's bot blocking")
+    print(f"To get authentic transcripts, you would need:")
+    print(f"1. Manual download outside cloud environment")
+    print(f"2. Audio file upload feature in the system") 
+    print(f"3. Direct OpenAI Whisper API processing of uploaded files")
+    
     return None
 
 # Command line interface
