@@ -6,6 +6,7 @@ import QueryInterface from "@/components/query-interface";
 import ResultsDisplay from "@/components/results-display";
 import VectorDatabase from "@/components/vector-database";
 
+import AgentPanel from "@/components/agent-panel";
 import AgentDiagram from "@/components/agent-diagram";
 import ChannelProcessor from "@/components/channel-processor";
 import CourseBuilderSimple from "@/components/course-builder-simple";
@@ -95,6 +96,9 @@ export default function Home() {
             <VectorDatabase />
           </div>
         </main>
+
+        {/* Agent Panel */}
+        <AgentPanel onActiveCountChange={setActiveAgentCount} />
       </div>
     </div>
   );
