@@ -1,10 +1,13 @@
 import { 
-  videos, chunks, queries, agents, agentLogs,
+  videos, chunks, queries, agents, agentLogs, courses, courseModules, courseLectures,
   type Video, type InsertVideo, 
   type Chunk, type InsertChunk,
   type Query, type InsertQuery,
   type Agent, type InsertAgent,
-  type AgentLog, type InsertAgentLog
+  type AgentLog, type InsertAgentLog,
+  type Course, type InsertCourse,
+  type CourseModule, type InsertCourseModule,
+  type CourseLecture, type InsertCourseLecture
 } from "@shared/schema";
 import { eq, desc, count } from "drizzle-orm";
 import { db } from "./db";

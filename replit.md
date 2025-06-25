@@ -123,6 +123,7 @@ Changelog:
 - June 24, 2025: Added real-time agent activity diagram showing multi-agent workflow visualization with live status updates
 - June 24, 2025: Implemented bulk channel processing feature for efficiently processing all videos from YouTube channels with batch processing and progress tracking
 - June 24, 2025: Fixed mock video generation to use only real YouTube videos, eliminating transcript fetch errors and improving user experience
+- June 25, 2025: Implemented comprehensive graduate-level course builder with intelligent YouTube video search, automatic course structure generation, and modular learning progression
 
 ## User Preferences
 

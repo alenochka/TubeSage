@@ -135,21 +135,7 @@ export const insertCourseLectureSchema = createInsertSchema(courseLectures).omit
   createdAt: true,
 });
 
-export const insertCourseSchema = createInsertSchema(courses).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
 
-export const insertCourseModuleSchema = createInsertSchema(courseModules).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertCourseLectureSchema = createInsertSchema(courseLectures).omit({
-  id: true,
-  createdAt: true,
-});
 
 // Types
 export type Video = typeof videos.$inferSelect;

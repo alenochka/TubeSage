@@ -10,6 +10,7 @@ import AgentDiagram from "@/components/agent-diagram";
 import ChannelProcessor from "@/components/channel-processor";
 import CourseBuilder from "@/components/course-builder";
 import CourseLibrary from "@/components/course-library";
+import CourseViewer from "@/components/course-viewer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useWebSocket } from "@/hooks/use-websocket";
@@ -17,6 +18,7 @@ import { useWebSocket } from "@/hooks/use-websocket";
 export default function Home() {
   const [activeAgentCount, setActiveAgentCount] = useState(4);
   const [selectedQuery, setSelectedQuery] = useState<any>(null);
+  const [selectedCourse, setSelectedCourse] = useState<any>(null);
   
   // WebSocket connection for real-time updates
   useWebSocket("/ws");
@@ -62,6 +64,21 @@ export default function Home() {
             
             {/* Channel Processor */}
             <ChannelProcessor />
+
+            {/* Course Builder */}
+            <CourseBuilder onCourseCreated={(course) => {
+              setSelectedCourse(course);
+            }} />
+
+            {/* Course Library */}
+            {!selectedCourse ? (
+              <CourseLibrary onCourseSelect={setSelectedCourse} />
+            ) : (
+              <CourseViewer 
+                courseId={selectedCourse.id} 
+                onBack={() => setSelectedCourse(null)} 
+              />
+            )}
 
             {/* Query Interface */}
             <QueryInterface onQuerySelect={setSelectedQuery} />
