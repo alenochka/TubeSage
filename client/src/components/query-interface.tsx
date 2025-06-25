@@ -18,10 +18,10 @@ export default function QueryInterface({ onQuerySelect }: QueryInterfaceProps) {
   const { toast } = useToast();
 
   const suggestedQueries = [
-    "What does Nathan Babcock say about quantum effects in biology?",
-    "Who is the speaker and what are the main points about quantum biology?",
-    "What research methods are discussed in the videos?",
-    "How does the speaker explain photon emissions in living organisms?"
+    "What is vibe coding and how does it relate to AI development?",
+    "How are graph neural networks used in biological research?",
+    "What are the latest developments in AI agents?",
+    "Explain the role of variational autoencoders in machine learning"
   ];
 
   const submitQueryMutation = useMutation({
@@ -69,12 +69,12 @@ export default function QueryInterface({ onQuerySelect }: QueryInterfaceProps) {
       <CardContent className="space-y-4">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="question">Ask a question about the transcripts</Label>
+            <Label htmlFor="question">Ask a question about the video content</Label>
             <div className="relative mt-2">
               <Textarea
                 id="question"
                 rows={3}
-                placeholder="What does Nathan Babcock say about quantum effects in biology?"
+                placeholder="What is vibe coding and how does it relate to AI development?"
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 disabled={submitQueryMutation.isPending}
