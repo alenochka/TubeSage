@@ -21,7 +21,8 @@ export default function QueryInterface({ onQuerySelect }: QueryInterfaceProps) {
     "What is vibe coding and how does it relate to AI development?",
     "How are graph neural networks used in biological research?",
     "What are the latest developments in AI agents?",
-    "Explain the role of variational autoencoders in machine learning"
+    "Explain the role of variational autoencoders in machine learning",
+    "What quantum effects Babcock describes in biology?"
   ];
 
   const submitQueryMutation = useMutation({
