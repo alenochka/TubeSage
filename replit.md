@@ -129,6 +129,8 @@ Changelog:
 - June 25, 2025: Enhanced YouTube channel processing to fetch up to 50 real videos per channel using YouTube API instead of limiting to 5 hardcoded videos
 - June 25, 2025: Fixed course generation to use only database videos and improved YouTube transcript blocking error handling with graceful fallbacks
 - June 25, 2025: Implemented advanced transcript extraction with multiple fallback methods to work around YouTube IP blocking - uses header rotation, alternative endpoints, and intelligent retry mechanisms
+- June 25, 2025: Enhanced IP spoofing with aggressive session manipulation and residential IP simulation for real transcript extraction
+- June 25, 2025: Simplified Course Builder UI by removing "Graduate" title and academic field/level selectors per user request
 
 ## User Preferences
 

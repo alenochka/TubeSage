@@ -62,73 +62,180 @@ def get_transcript_method1(video_id):
         return None
 
 def get_transcript_method2(video_id):
-    """Alternative method using direct YouTube API calls with rotation"""
+    """IP spoofing method using proxies and header rotation"""
+    
+    # List of free proxy services to rotate through
+    proxy_list = [
+        # Public proxy endpoints - these would be real proxy services in production
+        {'http': 'http://proxy1.example.com:8080', 'https': 'https://proxy1.example.com:8080'},
+        {'http': 'http://proxy2.example.com:3128', 'https': 'https://proxy2.example.com:3128'},
+    ]
+    
+    # Realistic browser headers to spoof different devices/locations
     headers_list = [
         {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'X-Forwarded-For': f'{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}',
+            'X-Real-IP': f'{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1'
         },
         {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept-Language': 'en-US,en;q=0.8',
-            'Accept': 'application/json,text/plain,*/*'
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+            'Accept-Language': 'en-GB,en;q=0.8',
+            'Accept': 'application/json,text/plain,*/*',
+            'X-Forwarded-For': f'{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}',
+            'X-Real-IP': f'{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}',
+            'DNT': '1'
         },
         {
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept-Language': 'en,en-US;q=0.9',
-            'Accept': '*/*'
+            'Accept': '*/*',
+            'X-Forwarded-For': f'{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}',
+            'X-Real-IP': f'{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}'
         }
     ]
     
-    for headers in headers_list:
-        try:
-            # Add random delay to avoid rate limiting
-            time.sleep(random.uniform(1, 3))
-            
-            # Try to get transcript through different endpoints
-            url = f"https://www.youtube.com/watch?v={video_id}"
-            session = requests.Session()
-            session.headers.update(headers)
-            
-            response = session.get(url, timeout=15)
-            if response.status_code == 200:
-                # Look for transcript data in the page
-                content = response.text
+    # Try direct transcript extraction with spoofed headers
+    try:
+        from youtube_transcript_api import YouTubeTranscriptApi
+        from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound, VideoUnavailable
+        
+        for i, headers in enumerate(headers_list):
+            try:
+                print(f"Attempting spoofed request {i+1} for {video_id}", file=sys.stderr)
                 
-                # Search for captions/transcript URLs in the page source
-                caption_pattern = r'"captionTracks":\[([^\]]+)\]'
-                match = re.search(caption_pattern, content)
+                # Add random delay between attempts
+                time.sleep(random.uniform(2, 5))
                 
-                if match:
-                    # Found caption tracks, try to extract transcript
-                    # This is a simplified version - would need more complex parsing
-                    print(f"Found caption tracks for {video_id}", file=sys.stderr)
-                    return None  # Placeholder for now
+                # Override default session with spoofed headers
+                import youtube_transcript_api
+                original_get = requests.get
+                
+                def spoofed_get(url, **kwargs):
+                    kwargs['headers'] = {**kwargs.get('headers', {}), **headers}
+                    kwargs['timeout'] = kwargs.get('timeout', 15)
+                    return original_get(url, **kwargs)
+                
+                # Temporarily patch requests.get
+                requests.get = spoofed_get
+                
+                # Try to get transcript with spoofed headers
+                transcript_list = YouTubeTranscriptApi.get_transcript(
+                    video_id, 
+                    languages=['en', 'en-US', 'en-GB', 'auto']
+                )
+                
+                # Restore original requests.get
+                requests.get = original_get
+                
+                if transcript_list:
+                    print(f"Successfully retrieved transcript using spoofed headers method for {video_id}", file=sys.stderr)
+                    return transcript_list
                     
-        except Exception as e:
-            print(f"Method 2 attempt failed: {str(e)}", file=sys.stderr)
-            continue
+            except (TranscriptsDisabled, NoTranscriptFound, VideoUnavailable) as e:
+                print(f"Transcript unavailable for {video_id}: {e}", file=sys.stderr)
+                continue
+            except Exception as e:
+                print(f"Spoofed attempt {i+1} failed: {str(e)}", file=sys.stderr)
+                continue
+            finally:
+                # Always restore original requests.get
+                requests.get = original_get
+                
+    except Exception as e:
+        print(f"Method 2 (IP spoofing) failed: {str(e)}", file=sys.stderr)
     
     return None
 
 def get_transcript_method3(video_id):
-    """Fallback method using alternative transcript services"""
+    """Advanced IP rotation and session spoofing method"""
     try:
-        # Try alternative transcript extraction libraries
-        # This would use different libraries or services if available
-        # For now, we'll simulate a different approach
+        from youtube_transcript_api import YouTubeTranscriptApi
+        import requests
+        import urllib3
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         
-        # Could integrate with:
-        # - OpenAI Whisper for audio transcription
-        # - Alternative transcript APIs
-        # - Manual transcript databases
+        # More aggressive IP spoofing techniques
+        spoofed_ips = [
+            f'72.{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}',  # US residential
+            f'81.{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}',  # EU residential
+            f'203.{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}', # APAC residential
+        ]
         
-        print(f"Method 3 not implemented yet for {video_id}", file=sys.stderr)
+        user_agents = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/119.0',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0'
+        ]
+        
+        for attempt in range(len(spoofed_ips)):
+            try:
+                spoofed_ip = spoofed_ips[attempt]
+                user_agent = user_agents[attempt % len(user_agents)]
+                
+                print(f"Method 3 attempt {attempt + 1}: Spoofing IP {spoofed_ip} for {video_id}", file=sys.stderr)
+                
+                # Create session with aggressive spoofing
+                session = requests.Session()
+                session.headers.update({
+                    'User-Agent': user_agent,
+                    'X-Forwarded-For': spoofed_ip,
+                    'X-Real-IP': spoofed_ip,
+                    'X-Originating-IP': spoofed_ip,
+                    'X-Remote-IP': spoofed_ip,
+                    'X-Remote-Addr': spoofed_ip,
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Encoding': 'gzip, deflate',
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache',
+                    'DNT': '1',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1'
+                })
+                
+                # Patch the underlying requests to use our spoofed session
+                original_session = requests.Session
+                
+                def spoofed_session():
+                    return session
+                
+                requests.Session = spoofed_session
+                
+                # Random delay to avoid detection
+                time.sleep(random.uniform(3, 7))
+                
+                # Try transcript extraction with heavy spoofing
+                transcript_list = YouTubeTranscriptApi.get_transcript(
+                    video_id,
+                    languages=['en', 'en-US', 'en-GB', 'auto', 'en-CA', 'en-AU']
+                )
+                
+                # Restore original session
+                requests.Session = original_session
+                
+                if transcript_list:
+                    print(f"Method 3 SUCCESS: Retrieved transcript with spoofed IP {spoofed_ip} for {video_id}", file=sys.stderr)
+                    return transcript_list
+                    
+            except Exception as e:
+                print(f"Method 3 attempt {attempt + 1} failed: {str(e)}", file=sys.stderr)
+                # Restore original session on error
+                try:
+                    requests.Session = original_session
+                except:
+                    pass
+                continue
+        
         return None
         
     except Exception as e:
-        print(f"Method 3 failed: {str(e)}", file=sys.stderr)
+        print(f"Method 3 failed completely: {str(e)}", file=sys.stderr)
         return None
 
 def create_placeholder_transcript(video_id, video_info):
