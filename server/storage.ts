@@ -339,9 +339,23 @@ export class DatabaseStorage implements IStorage {
 
   // Course lecture operations
   async getCourseLectures(moduleId: number): Promise<CourseLecture[]> {
+    // Join with videos table to get YouTube IDs  
     return await db
-      .select()
+      .select({
+        id: courseLectures.id,
+        moduleId: courseLectures.moduleId,
+        videoId: courseLectures.videoId,
+        title: courseLectures.title,
+        orderIndex: courseLectures.orderIndex,
+        keyTopics: courseLectures.keyTopics,
+        theoreticalConcepts: courseLectures.theoreticalConcepts,
+        practicalApplications: courseLectures.practicalApplications,
+        relevanceScore: courseLectures.relevanceScore,
+        createdAt: courseLectures.createdAt,
+        youtubeId: videos.youtubeId // Get the actual YouTube ID
+      })
       .from(courseLectures)
+      .leftJoin(videos, eq(courseLectures.videoId, videos.id))
       .where(eq(courseLectures.moduleId, moduleId))
       .orderBy(courseLectures.orderIndex);
   }

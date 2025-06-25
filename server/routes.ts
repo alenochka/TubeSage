@@ -1046,11 +1046,11 @@ async function generateCourseModules(courseId: number, videos: any[], topic: str
     for (let j = 0; j < moduleVideos.length; j++) {
       const video = moduleVideos[j];
       
-      // Ensure video exists in database
+      // Ensure video exists in database with correct YouTube ID
       let dbVideo = await storage.getVideoByYoutubeId(video.youtubeId);
       if (!dbVideo) {
         dbVideo = await storage.createVideo({
-          youtubeId: video.youtubeId,
+          youtubeId: video.youtubeId, // Keep the real YouTube ID
           title: video.title,
           duration: video.duration,
           status: "indexed"

@@ -275,7 +275,15 @@ export default function CourseViewer({ courseId, onBack }: CourseViewerProps) {
                               variant="outline"
                               size="sm"
                               className="mt-2"
-                              onClick={() => window.open(`https://www.youtube.com/watch?v=${lecture.videoId}`, '_blank')}
+                              onClick={() => {
+                                // Use the actual YouTube ID from the joined data
+                                const youtubeId = (lecture as any).youtubeId;
+                                if (youtubeId) {
+                                  window.open(`https://www.youtube.com/watch?v=${youtubeId}`, '_blank');
+                                } else {
+                                  console.error('No YouTube ID found for lecture:', lecture);
+                                }
+                              }}
                             >
                               Watch Video
                             </Button>
