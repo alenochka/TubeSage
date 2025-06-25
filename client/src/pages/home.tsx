@@ -66,9 +66,6 @@ export default function Home() {
 
             {/* Results Display */}
             {selectedQuery && <ResultsDisplay query={selectedQuery} />}
-
-            {/* Agent Activity Diagram */}
-            <AgentDiagram />
             
             {/* Vector Database */}
             <VectorDatabase />
@@ -76,7 +73,14 @@ export default function Home() {
         </main>
 
         {/* Agent Panel */}
-        <AgentPanel onActiveCountChange={setActiveAgentCount} />
+        <div className="flex flex-col">
+          <AgentPanel onActiveCountChange={setActiveAgentCount} />
+          
+          {/* Agent Activity Diagram under Agent Orchestration */}
+          <div className="mt-6">
+            <AgentDiagram />
+          </div>
+        </div>
       </div>
     </div>
   );
