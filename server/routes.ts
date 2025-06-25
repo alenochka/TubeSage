@@ -789,6 +789,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Academic content search endpoint
+  app.post('/api/academic/search', async (req, res) => {
+    try {
+      const { topic, field, level = 'graduate' } = req.body;
+      
+      if (!topic || !field) {
+        return res.status(400).json({ error: 'Topic and field are required' });
+      }
+
+      // Call Python academic scraper
+      const response = await fetch('http://localhost:8001/search_academic_content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, field, level })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Academic search failed: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      res.json(result);
+    } catch (error: any) {
+      console.error('Academic search error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Academic video selection endpoint
+  app.post('/api/academic/select-videos', async (req, res) => {
+    try {
+      const { videos, courseId } = req.body;
+      
+      if (!videos || !Array.isArray(videos)) {
+        return res.status(400).json({ error: 'Videos array is required' });
+      }
+
+      // Process selected academic videos
+      const processedVideos = [];
+      
+      for (const video of videos) {
+        try {
+          // Ensure video exists in database
+          let dbVideo = await storage.getVideoByYoutubeId(video.youtube_id);
+          if (!dbVideo) {
+            dbVideo = await storage.createVideo({
+              youtubeId: video.youtube_id,
+              title: video.title,
+              duration: video.duration || '0:00',
+              status: "indexed"
+            });
+          }
+
+          processedVideos.push({
+            id: dbVideo.id,
+            youtubeId: video.youtube_id,
+            title: video.title,
+            duration: video.duration,
+            source: video.source,
+            university: video.university,
+            academic_score: video.academic_score,
+            final_score: video.final_score
+          });
+        } catch (error) {
+          console.error(`Error processing video ${video.youtube_id}:`, error);
+        }
+      }
+
+      res.json({
+        success: true,
+        processed_videos: processedVideos.length,
+        videos: processedVideos
+      });
+    } catch (error: any) {
+      console.error('Video selection error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return httpServer;
 }
 
