@@ -889,7 +889,7 @@ function extractChannelId(url: string): string | null {
   return null;
 }
 
-function generateMockChannelVideos(channelId: string) {
+function generateMockChannelVideos(channelId: string, maxResults: number = 50) {
   // Only use real, existing YouTube videos to avoid transcript errors
   // In production, this would use YouTube Data API to fetch actual channel videos
   const realVideos = [
