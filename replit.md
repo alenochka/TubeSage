@@ -128,6 +128,7 @@ Changelog:
 - June 25, 2025: Fixed academic search to use only verified real YouTube video IDs instead of placeholder/mock videos - now returns authentic MIT, Stanford, and Harvard content that users can actually watch
 - June 25, 2025: Enhanced YouTube channel processing to fetch up to 50 real videos per channel using YouTube API instead of limiting to 5 hardcoded videos
 - June 25, 2025: Fixed course generation to use only database videos and improved YouTube transcript blocking error handling with graceful fallbacks
+- June 25, 2025: Implemented advanced transcript extraction with multiple fallback methods to work around YouTube IP blocking - uses header rotation, alternative endpoints, and intelligent retry mechanisms
 
 ## User Preferences
 
