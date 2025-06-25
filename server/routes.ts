@@ -24,7 +24,7 @@ async function processVideoWithAI(youtubeId: string, videoId: number) {
       // Extract real YouTube transcript using Node.js subprocess
       const { spawn } = await import('child_process');
       
-      const python = spawn('python3', ['./server/working-transcript-extractor.py', youtubeId]);
+      const python = spawn('python3', ['./server/youtube-transcript-direct.py', youtubeId]);
       let output = '';
       
       python.stdout.on('data', (data) => {
@@ -1862,7 +1862,7 @@ async function getRealTranscript(videoId: string): Promise<string | null> {
       args: [videoId]
     };
 
-    PythonShell.run('working-transcript-extractor.py', options, (err, results) => {
+    PythonShell.run('youtube-transcript-direct.py', options, (err, results) => {
       if (err) {
         console.error('Working transcript extraction error:', err);
         resolve(null);
