@@ -1852,6 +1852,46 @@ function calculateVideoRelevance(title: string, topic: string, field: string): n
   return Math.min(score, 1.0);
 }
 
+async function getRealTranscript(videoId: string): Promise<string | null> {
+  return new Promise((resolve, reject) => {
+    const options = {
+      mode: 'text' as const,
+      pythonPath: 'python3',
+      pythonOptions: ['-u'],
+      scriptPath: './server',
+      args: [videoId]
+    };
+
+    PythonShell.run('real-transcript-service.py', options, (err, results) => {
+      if (err) {
+        console.error('Real transcript extraction error:', err);
+        resolve(null);
+        return;
+      }
+
+      if (results && results.length > 0) {
+        try {
+          const transcriptData = JSON.parse(results[0]);
+          if (transcriptData && Array.isArray(transcriptData)) {
+            // Convert transcript segments to single text
+            const fullText = transcriptData
+              .map(segment => segment.text)
+              .join(' ');
+            resolve(fullText);
+          } else {
+            resolve(null);
+          }
+        } catch (parseError) {
+          console.error('Failed to parse transcript data:', parseError);
+          resolve(null);
+        }
+      } else {
+        resolve(null);
+      }
+    });
+  });
+}
+
 function extractVideoId(url: string): string | null {
   const patterns = [
     /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
