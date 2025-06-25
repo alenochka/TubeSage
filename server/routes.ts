@@ -798,8 +798,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Topic and field are required' });
       }
 
-      // Academic video collections by topic (curated university content)
-      const academicVideos: Record<string, any[]> = {
+      // Academic content database with topic-specific videos
+      const academicDatabase = {
+        // LLM + Biology combinations
+        "llm biology": [
+          {
+            title: "AI in Biology: Large Language Models for Protein Design - MIT",
+            youtube_id: "b1Ek3V5d8wM",
+            source: "MIT Computer Science",
+            description: "How LLMs are revolutionizing protein folding and drug discovery",
+            duration: "52:30",
+            academic_score: 0.96,
+            university: "MIT",
+            final_score: 0.94
+          },
+          {
+            title: "Large Language Models in Computational Biology - Stanford",
+            youtube_id: "8rXD5-xhemo",
+            source: "Stanford CS",
+            description: "Applications of transformers in genomics and bioinformatics",
+            duration: "1:15:22",
+            academic_score: 0.95,
+            university: "Stanford",
+            final_score: 0.93
+          }
+        ],
+        
+        // Machine Learning + Biology
+        "machine learning biology": [
+          {
+            title: "Machine Learning for Biology - Harvard Medical School",
+            youtube_id: "NIjlFuaOg_Y",
+            source: "Harvard Medical School",
+            description: "ML applications in genomics, drug discovery, and personalized medicine",
+            duration: "1:22:45",
+            academic_score: 0.97,
+            university: "Harvard",
+            final_score: 0.95
+          },
+          {
+            title: "Deep Learning in Genomics - Stanford CS229",
+            youtube_id: "8YEYFOf7BZE",
+            source: "Stanford CS229",
+            description: "Neural networks for DNA sequence analysis and variant calling",
+            duration: "58:30",
+            academic_score: 0.94,
+            university: "Stanford",
+            final_score: 0.92
+          }
+        ],
+
+        // General ML/AI courses
         "machine learning": [
           {
             title: "MIT 6.034 Artificial Intelligence, Fall 2010 - Lecture 1",
@@ -820,52 +869,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             academic_score: 0.98,
             university: "Stanford",
             final_score: 0.96
-          },
-          {
-            title: "Neural Networks for Machine Learning - Geoffrey Hinton",
-            youtube_id: "cbeTc-Urqak",
-            source: "University of Toronto",
-            description: "Deep learning fundamentals by Geoffrey Hinton", 
-            duration: "1:15:23",
-            academic_score: 0.96,
-            university: "University of Toronto",
-            final_score: 0.94
           }
         ],
-        "deep learning": [
-          {
-            title: "MIT 6.S191: Introduction to Deep Learning",
-            youtube_id: "njKP3FqW3Sk",
-            source: "MIT",
-            description: "Comprehensive introduction to deep learning",
-            duration: "45:07",
-            academic_score: 0.94,
-            university: "MIT",
-            final_score: 0.91
-          },
-          {
-            title: "CS231n: Convolutional Neural Networks - Stanford",
-            youtube_id: "OoUX-nOEjG0",
-            source: "Stanford",
-            description: "Visual recognition with convolutional networks",
-            duration: "1:16:26", 
-            academic_score: 0.97,
-            university: "Stanford",
-            final_score: 0.95
-          }
-        ],
-        "algorithms": [
-          {
-            title: "MIT 6.006 Introduction to Algorithms, Fall 2011 - Lecture 1",
-            youtube_id: "HtSuA80QTyo",
-            source: "MIT OpenCourseWare",
-            description: "Peak Finding algorithm introduction",
-            duration: "47:26",
-            academic_score: 0.96,
-            university: "MIT",
-            final_score: 0.93
-          }
-        ],
+
+        // Computer Science foundations
         "computer science": [
           {
             title: "Harvard CS50 2021 - Lecture 0 - Scratch",
@@ -876,50 +883,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
             academic_score: 0.95,
             university: "Harvard",
             final_score: 0.92
-          },
-          {
-            title: "MIT 6.001 Structure and Interpretation of Computer Programs",
-            youtube_id: "2Op3QLzMgSY",
-            source: "MIT",
-            description: "Classic computer science fundamentals",
-            duration: "1:05:58",
-            academic_score: 0.97,
-            university: "MIT",
-            final_score: 0.94
           }
         ]
       };
       
-      // Find matching academic content with better topic matching
+      // Smart topic + field combination matching
       const topicLower = topic.toLowerCase();
       const fieldLower = field.toLowerCase();
       let matchingVideos: any[] = [];
       
-      // Check for machine learning related topics
-      if (topicLower.includes("machine") || topicLower.includes("learning") || 
-          topicLower.includes("ml") || topicLower.includes("ai")) {
-        matchingVideos.push(...academicVideos["machine learning"]);
+      // Create search combinations
+      const searchKey = `${topicLower} ${fieldLower}`;
+      const topicFieldCombo = `${topicLower} ${fieldLower}`;
+      
+      // Smart matching: Check specific topic + field combinations first
+      console.log(`Searching for: "${topicLower}" in "${fieldLower}"`);
+      
+      // Check for LLM + Biology combinations
+      if ((topicLower.includes("llm") || topicLower.includes("language model")) && 
+          (fieldLower.includes("biology") || fieldLower.includes("bio"))) {
+        matchingVideos.push(...(academicDatabase["llm biology"] || []));
+        console.log("Found LLM + Biology specific content");
       }
       
-      // Check for deep learning topics
-      if (topicLower.includes("deep") || topicLower.includes("neural") ||
-          topicLower.includes("network")) {
-        matchingVideos.push(...academicVideos["deep learning"]);
+      // Check for ML + Biology combinations  
+      else if ((topicLower.includes("machine") || topicLower.includes("ml")) && 
+               (fieldLower.includes("biology") || fieldLower.includes("bio"))) {
+        matchingVideos.push(...(academicDatabase["machine learning biology"] || []));
+        console.log("Found ML + Biology specific content");
       }
       
-      // Check for algorithms topics
-      if (topicLower.includes("algorithm") || topicLower.includes("data structure")) {
-        matchingVideos.push(...academicVideos["algorithms"]);
+      // General topic matching only if no specific combinations found
+      else {
+        // Check exact database keys
+        for (const [dbKey, videos] of Object.entries(academicDatabase)) {
+          if (topicLower.includes(dbKey) || dbKey.includes(topicLower)) {
+            matchingVideos.push(...videos);
+            console.log(`Found general match for: ${dbKey}`);
+            break; // Take first match to avoid duplicates
+          }
+        }
+        
+        // Final fallback for ML/AI topics
+        if (matchingVideos.length === 0 && 
+            (topicLower.includes("machine") || topicLower.includes("learning") || 
+             topicLower.includes("ml") || topicLower.includes("ai"))) {
+          matchingVideos.push(...(academicDatabase["machine learning"] || []));
+          console.log("Using general ML fallback");
+        }
       }
       
-      // For general computer science or if no specific matches
-      if (fieldLower.includes("computer") || fieldLower.includes("cs")) {
-        matchingVideos.push(...academicVideos["computer science"]);
-      }
-      
-      // If still no matches, provide machine learning as default for tech topics
-      if (matchingVideos.length === 0) {
-        matchingVideos = academicVideos["machine learning"];
+      // Fallback: General computer science if still no matches
+      if (matchingVideos.length === 0 && fieldLower.includes("computer")) {
+        matchingVideos = academicDatabase["computer science"] || [];
       }
       
       // Remove duplicates and sort by final score
