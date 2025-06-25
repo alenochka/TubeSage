@@ -796,11 +796,13 @@ async function searchTopicVideos(topic: string, field: string, level: string, vi
   // Try YouTube API search first, fall back to curated content if API unavailable
   try {
     const { searchYouTubeVideos } = await import('./youtube-api');
-    const youtubeResults = await searchYouTubeVideos(topic, field, level, videoCount * 2);
+    const youtubeResults = await searchYouTubeVideos(topic, field, level, Math.max(videoCount * 3, 30)); // Get more results to filter from
     
     if (youtubeResults.length > 0) {
+      console.log(`YouTube API found ${youtubeResults.length} videos for "${topic} ${field}"`);
+      
       // Convert YouTube API results to our format
-      return youtubeResults.slice(0, videoCount).map(video => ({
+      const convertedResults = youtubeResults.slice(0, videoCount).map(video => ({
         youtubeId: video.youtubeId,
         title: video.title,
         duration: video.duration,
@@ -812,9 +814,12 @@ async function searchTopicVideos(topic: string, field: string, level: string, vi
         keyTopics: extractKeyTopics(video.title, video.description, topic, field),
         field: field.toLowerCase()
       }));
+      
+      console.log(`Returning ${convertedResults.length} filtered videos`);
+      return convertedResults;
     }
   } catch (error: any) {
-    console.log('YouTube API not available, using curated content:', error.message);
+    console.log('YouTube API error, using curated content:', error.message);
   }
   
   // Fallback to curated educational content

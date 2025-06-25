@@ -37,6 +37,7 @@ export async function searchYouTubeVideos(
       `type=video&` +
       `videoDuration=medium&` + // 4-20 minutes for educational content
       `videoDefinition=any&` +
+      `videoEmbeddable=true&` + // Only embeddable videos
       `order=relevance&` +
       `maxResults=${maxResults}&` +
       `key=${apiKey}`;
@@ -55,7 +56,7 @@ export async function searchYouTubeVideos(
     // 3. Get detailed video information
     const videoIds = searchData.items.map((item: any) => item.id.videoId).join(',');
     const detailsUrl = `https://www.googleapis.com/youtube/v3/videos?` +
-      `part=snippet,contentDetails,statistics&` +
+      `part=snippet,contentDetails,statistics,status&` +
       `id=${videoIds}&` +
       `key=${apiKey}`;
     
@@ -66,19 +67,30 @@ export async function searchYouTubeVideos(
     
     const detailsData = await detailsResponse.json();
     
-    // 4. Process and rank results
-    const results: YouTubeSearchResult[] = detailsData.items.map((item: any) => ({
-      youtubeId: item.id,
-      title: item.snippet.title,
-      description: item.snippet.description,
-      duration: formatDuration(item.contentDetails.duration),
-      channelTitle: item.snippet.channelTitle,
-      publishedAt: item.snippet.publishedAt,
-      viewCount: parseInt(item.statistics.viewCount || '0'),
-      likeCount: parseInt(item.statistics.likeCount || '0'),
-      categoryId: item.snippet.categoryId,
-      tags: item.snippet.tags || []
-    }));
+    // 4. Process and rank results - filter out unavailable videos
+    const results: YouTubeSearchResult[] = detailsData.items
+      .filter((item: any) => {
+        // Only include videos that are available and have content
+        return item.contentDetails &&
+               item.contentDetails.duration &&
+               item.contentDetails.duration !== 'PT0S' && // Not empty/zero duration
+               item.snippet &&
+               item.snippet.title &&
+               !item.snippet.title.toLowerCase().includes('deleted') &&
+               !item.snippet.title.toLowerCase().includes('unavailable');
+      })
+      .map((item: any) => ({
+        youtubeId: item.id,
+        title: item.snippet.title,
+        description: item.snippet.description || '',
+        duration: formatDuration(item.contentDetails.duration),
+        channelTitle: item.snippet.channelTitle,
+        publishedAt: item.snippet.publishedAt,
+        viewCount: parseInt(item.statistics.viewCount || '0'),
+        likeCount: parseInt(item.statistics.likeCount || '0'),
+        categoryId: item.snippet.categoryId,
+        tags: item.snippet.tags || []
+      }));
 
     // 5. Filter and rank by educational quality
     const rankedResults = results
