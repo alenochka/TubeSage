@@ -34,13 +34,17 @@ export default function PlaylistProcessor() {
 
   const fetchPlaylistMutation = useMutation({
     mutationFn: async (url: string) => {
+      console.log("Fetching playlist:", url);
       const response = await apiRequest("POST", "/api/playlists/process", { 
         playlistUrl: url, 
         maxResults: 50 
       });
-      return response.json();
+      const data = await response.json();
+      console.log("Playlist response:", data);
+      return data;
     },
     onSuccess: (data) => {
+      console.log("Playlist fetch success:", data);
       setFetchedVideos(data.videos || []);
       toast({
         title: "Playlist Loaded",
@@ -48,6 +52,7 @@ export default function PlaylistProcessor() {
       });
     },
     onError: (error: any) => {
+      console.error("Playlist fetch error:", error);
       toast({
         title: "Failed to Load Playlist",
         description: error.message || "Please check the playlist URL and try again.",
@@ -58,7 +63,7 @@ export default function PlaylistProcessor() {
 
   const processVideoMutation = useMutation({
     mutationFn: async (youtubeId: string) => {
-      const response = await apiRequest("POST", "/api/videos", { 
+      const response = await apiRequest("POST", "/api/videos/process", { 
         youtubeUrl: `https://www.youtube.com/watch?v=${youtubeId}` 
       });
       return response.json();

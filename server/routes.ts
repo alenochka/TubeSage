@@ -941,7 +941,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Playlist processing endpoint
+  app.post("/api/playlists/process", async (req, res) => {
+    try {
+      const { playlistUrl, maxResults = 50 } = req.body;
+      
+      if (!playlistUrl) {
+        return res.status(400).json({ error: "Playlist URL is required" });
+      }
+
+      console.log(`Processing playlist: ${playlistUrl}`);
+
+      // Get playlist videos using YouTube API
+      const videos = await fetchPlaylistVideos(playlistUrl, maxResults);
+      
+      if (videos.length === 0) {
+        return res.status(404).json({ error: "No videos found in this playlist" });
+      }
+
+      console.log(`Found ${videos.length} videos in playlist`);
+
+      res.json({ 
+        success: true, 
+        videos,
+        message: `Found ${videos.length} videos from playlist`
+      });
+    } catch (error: any) {
+      console.error("Playlist processing error:", error);
+      res.status(500).json({ 
+        error: "Failed to process playlist",
+        details: error.message 
+      });
+    }
+  });
+
   return httpServer;
+}
+
+async function fetchPlaylistVideos(playlistUrl: string, maxResults: number = 50) {
+  try {
+    const apiKey = process.env.YOUTUBE_API_KEY;
+    if (!apiKey) {
+      throw new Error("YouTube API key not configured");
+    }
+
+    // Extract playlist ID from URL
+    const playlistIdMatch = playlistUrl.match(/[?&]list=([a-zA-Z0-9_-]+)/);
+    if (!playlistIdMatch) {
+      throw new Error("Invalid playlist URL");
+    }
+    
+    const playlistId = playlistIdMatch[1];
+    console.log(`Extracted playlist ID: ${playlistId}`);
+
+    // Get playlist items
+    const playlistItemsUrl = `https://www.googleapis.com/youtube/v3/playlistItems?playlistId=${playlistId}&key=${apiKey}&part=snippet&maxResults=${Math.min(maxResults, 50)}`;
+    const playlistResponse = await fetch(playlistItemsUrl);
+    
+    if (!playlistResponse.ok) {
+      const errorText = await playlistResponse.text();
+      throw new Error(`YouTube API error: ${playlistResponse.status} - ${errorText}`);
+    }
+    
+    const playlistData = await playlistResponse.json();
+    
+    if (!playlistData.items || playlistData.items.length === 0) {
+      return [];
+    }
+
+    console.log(`Found ${playlistData.items.length} playlist items`);
+
+    // Get video IDs
+    const videoIds = playlistData.items.map((item: any) => item.snippet.resourceId.videoId);
+    
+    // Get detailed video information
+    const videosUrl = `https://www.googleapis.com/youtube/v3/videos?id=${videoIds.join(',')}&key=${apiKey}&part=snippet,contentDetails,statistics`;
+    const videosResponse = await fetch(videosUrl);
+    
+    if (!videosResponse.ok) {
+      const errorText = await videosResponse.text();
+      throw new Error(`YouTube API error: ${videosResponse.status} - ${errorText}`);
+    }
+    
+    const videosData = await videosResponse.json();
+    
+    const videos = videosData.items.map((video: any) => ({
+      videoId: video.id,
+      title: video.snippet.title,
+      description: video.snippet.description?.substring(0, 500) + "..." || '',
+      publishedAt: video.snippet.publishedAt,
+      channelTitle: video.snippet.channelTitle,
+      duration: parseDuration(video.contentDetails.duration),
+      viewCount: parseInt(video.statistics.viewCount || '0'),
+      thumbnail: video.snippet.thumbnails.medium?.url || ''
+    }));
+
+    console.log(`Processed ${videos.length} videos`);
+    return videos.slice(0, maxResults);
+    
+  } catch (error: any) {
+    console.error("Error fetching playlist videos:", error);
+    throw error;
+  }
 }
 
 async function resolveChannelId(channelHandle: string): Promise<string | null> {
