@@ -1,6 +1,6 @@
 # YouTube AI Agent System
 
-A sophisticated multi-agent YouTube transcript processing system built with a modern full-stack architecture. Process YouTube videos, extract transcripts, create vector embeddings for semantic search, and query content using AI-powered responses.
+A  multi-agent YouTube transcript processing system built with a  full-stack architecture. Process YouTube videos, extract transcripts, create vector embeddings for semantic search, and query content using AI-powered responses.
 
 ## Features
 
